@@ -139,6 +139,11 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .fragment--subway { left: 690px; top: 80px; width: 190px; }
 .fragment--hall { left: 1290px; top: 330px; width: 285px; }
 .fragment--gate { left: 585px; top: 665px; width: 225px; }
+.fragment--reflection-one { left: 1750px; top: 120px; width: 300px; }
+.fragment--reflection-two { left: 2300px; top: 220px; width: 260px; }
+.fragment--reflection-three { left: 1700px; top: 700px; width: 310px; }
+.fragment--reflection-four { left: 2500px; top: 730px; width: 300px; }
+.fragment--reflection-five { left: 2050px; top: 1250px; width: 340px; }
 .fragment--captured { box-shadow: 0 18px 44px rgba(23,24,21,.13); }
 .fragment--captured::before { content: "new"; position: absolute; z-index: 2; top: 8px; left: 8px; padding: 4px 6px; background: rgba(244,243,239,.88); font-family: var(--font-geist-mono); text-transform: uppercase; font-size: 6px; letter-spacing: .1em; }
 .captured-note { position: absolute; left: calc(100% + 13px); top: 12%; width: 170px; margin: 0; padding: 13px 15px; border: 1px solid rgba(255,255,255,.68); background: rgba(249,249,246,.58); box-shadow: 0 10px 30px rgba(23,24,21,.08); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); font-family: Georgia, serif; font-style: italic; color: #5f615a; font-size: 11px; line-height: 1.5; pointer-events: none; }

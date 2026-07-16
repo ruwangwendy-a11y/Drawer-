@@ -13,12 +13,20 @@ const fragmentHomes: Record<string, Point> = {
   subway: { x: 785, y: 223 },
   hall: { x: 1433, y: 508 },
   gate: { x: 698, y: 841 },
+  reflectionOne: { x: 1900, y: 270 },
+  reflectionTwo: { x: 2430, y: 350 },
+  reflectionThree: { x: 1855, y: 850 },
+  reflectionFour: { x: 2650, y: 880 },
+  reflectionFive: { x: 2220, y: 1420 },
 };
 
 const memoryHomes = [
   { x: 570, y: 260 },
   { x: 1045, y: 505 },
   { x: 1295, y: 915 },
+  { x: 2050, y: 430 },
+  { x: 2350, y: 1050 },
+  { x: 2500, y: 1430 },
 ];
 
 const fragments = [
@@ -50,6 +58,41 @@ const fragments = [
     date: "June 29",
     className: "fragment fragment--gate",
   },
+  {
+    id: "reflectionOne",
+    src: "/sample-reflection-1846.jpg",
+    alt: "Pedestrian signs multiplied in a dark glass reflection",
+    date: "Reflection study · 01",
+    className: "fragment fragment--reflection-one",
+  },
+  {
+    id: "reflectionTwo",
+    src: "/sample-reflection-1847.jpg",
+    alt: "Bare trees reflected across a modern building facade",
+    date: "Reflection study · 02",
+    className: "fragment fragment--reflection-two",
+  },
+  {
+    id: "reflectionThree",
+    src: "/sample-reflection-1848.jpg",
+    alt: "Empty theater seats seen through a reflective storefront window",
+    date: "Reflection study · 03",
+    className: "fragment fragment--reflection-three",
+  },
+  {
+    id: "reflectionFour",
+    src: "/sample-reflection-1849.jpg",
+    alt: "A bright pedestrian sign in front of city buildings",
+    date: "Reflection study · 04",
+    className: "fragment fragment--reflection-four",
+  },
+  {
+    id: "reflectionFive",
+    src: "/sample-reflection-1870.jpg",
+    alt: "A construction worker and street scene layered through glass reflections",
+    date: "Reflection study · 05",
+    className: "fragment fragment--reflection-five",
+  },
 ];
 
 const memoryNotes = [
@@ -67,6 +110,21 @@ const memoryNotes = [
     date: "June 29 · note",
     text: "A place can be open and still refuse you.",
     target: "gate",
+  },
+  {
+    date: "Assignment note · reflection study",
+    text: "I thought I was photographing signs. The glass kept putting the viewer back into the picture.",
+    target: "reflectionOne",
+  },
+  {
+    date: "Assignment note · reflection study",
+    text: "The reflection is always there, but most of the time we look through it.",
+    target: "reflectionThree",
+  },
+  {
+    date: "Unfinished thought · reflection study",
+    text: "Maybe a window does not only show what is behind it. It also keeps what passes in front.",
+    target: "reflectionFive",
   },
 ];
 
@@ -530,18 +588,13 @@ export default function Home() {
                 {currentRoom.isSample && memoryItems.map((note, index) => {
                   const id = `memory-${index}`;
                   if (hiddenIds.includes(id)) return null;
-                  const homes = [
-                    { left: 455, top: 195 },
-                    { left: 930, top: 440 },
-                    { left: 1180, top: 850 },
-                  ];
                   return (
                     <button
                       key={id}
                       className={`memory-fragment${focusedFragment === note.target ? " is-active" : ""}`}
                       style={{
-                        left: `${homes[index].left}px`,
-                        top: `${homes[index].top}px`,
+                        left: `${memoryHomes[index].x - 115}px`,
+                        top: `${memoryHomes[index].y - 65}px`,
                         transform: itemTransform(id),
                       }}
                       onClick={() => setFocusedFragment(focusedFragment === note.target ? null : note.target)}
