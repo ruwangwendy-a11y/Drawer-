@@ -866,7 +866,7 @@ export default function Home() {
                   <button
                     key={`ai-${thread.id}`}
                     className={`living-thread living-thread--generated${activeAiThreadId === thread.id ? " is-open" : ""}`}
-                    style={{ left: `${1650 + index * 330}px`, top: "1740px" }}
+                    style={{ left: `${1650 + index * 330}px`, top: "920px" }}
                     onClick={() => setActiveAiThreadId(activeAiThreadId === thread.id ? null : thread.id)}
                   >
                     <span className="thread-pulse" />

@@ -184,7 +184,7 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .living-thread strong { font-size: 11px; font-weight: 560; }
 .living-thread small { margin-top: 3px; font-family: var(--font-geist-mono); color: var(--muted); font-size: 7px; letter-spacing: .06em; text-transform: uppercase; }
 .thread-card { position: absolute; z-index: 10; left: 1190px; top: 610px; width: 370px; padding: 23px; background: rgba(244,243,239,.97); border: 1px solid var(--line); box-shadow: 0 22px 70px rgba(23,24,21,.12); animation: cardIn .35s ease both; }
-.thread-card--generated { left: 1640px; top: 1210px; width: 470px; }
+.thread-card--generated { left: 1640px; top: 500px; width: 470px; }
 @keyframes cardIn { from { opacity: 0; transform: translateY(10px); } }
 .thread-card-heading { display: flex; justify-content: space-between; align-items: center; }
 .thread-card-heading p { margin: 0; font-family: var(--font-geist-mono); color: var(--muted); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; }
