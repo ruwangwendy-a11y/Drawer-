@@ -75,9 +75,17 @@ export async function POST(request: Request) {
     return Response.json({ error: "Drawer could not analyze this room yet" }, { status: 502 });
   }
 
-  const result = await response.json<{ output_text?: string }>();
+  const result = await response.json<{
+    output_text?: string;
+    output?: Array<{ content?: Array<{ type?: string; text?: string }> }>;
+  }>();
+  const outputText = result.output_text
+    ?? result.output?.flatMap((item) => item.content ?? []).find((item) => item.type === "output_text")?.text
+    ?? "";
   try {
-    return Response.json(JSON.parse(result.output_text ?? "{}"));
+    const parsed = JSON.parse(outputText) as { threads?: unknown[] };
+    if (!Array.isArray(parsed.threads)) throw new Error("Missing threads array");
+    return Response.json(parsed);
   } catch {
     return Response.json({ error: "Drawer received an incomplete analysis" }, { status: 502 });
   }
