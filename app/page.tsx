@@ -6,6 +6,7 @@ type View = "landing" | "drawer" | "room";
 type ThreadState = "idle" | "evidence" | "accepted" | "rejected";
 type CapturedImage = { id: string; src: string; name: string; note: string; date: string; width: number; height: number; roomId?: string };
 type CapturedText = { id: string; text: string; date: string; roomId: string };
+type CapturedAudio = { id: string; src: string; date: string; duration: number; roomId: string };
 type Point = { x: number; y: number };
 
 const fragmentHomes: Record<string, Point> = {
@@ -142,6 +143,7 @@ export default function Home() {
   const [pendingImages, setPendingImages] = useState<CapturedImage[]>([]);
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
   const [capturedTexts, setCapturedTexts] = useState<CapturedText[]>([]);
+  const [capturedAudios, setCapturedAudios] = useState<CapturedAudio[]>([]);
   const [positions, setPositions] = useState<Record<string, Point>>({});
   const [relationSignal, setRelationSignal] = useState<string | null>(null);
   const [zoom, setZoom] = useState(0.78);
@@ -157,8 +159,18 @@ export default function Home() {
   const [currentRoomId, setCurrentRoomId] = useState("sample");
   const [renamingRoom, setRenamingRoom] = useState(false);
   const [roomNameDraft, setRoomNameDraft] = useState("");
+  const [deviceId, setDeviceId] = useState("");
+  const [hydrated, setHydrated] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [recordedAudio, setRecordedAudio] = useState<{ blob: Blob; url: string; duration: number } | null>(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingError, setRecordingError] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const dragState = useRef<{ id: string; startX: number; startY: number; origin: Point; target: HTMLElement } | null>(null);
+  const mediaRecorder = useRef<MediaRecorder | null>(null);
+  const audioChunks = useRef<Blob[]>([]);
+  const recordingTimer = useRef<number | null>(null);
+  const recordingStartedAt = useRef(0);
 
   const roomClass = useMemo(
     () => `room-canvas${threadState !== "idle" ? " room-canvas--thread" : ""}`,
@@ -175,6 +187,51 @@ export default function Home() {
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [sparkOpen]);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("drawer-device-id");
+    const id = stored ?? crypto.randomUUID();
+    if (!stored) window.localStorage.setItem("drawer-device-id", id);
+    setDeviceId(id);
+  }, []);
+
+  useEffect(() => {
+    if (!deviceId) return;
+    fetch("/api/state", { headers: { "x-drawer-device": deviceId } })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Could not load your Drawer")))
+      .then(({ state }) => {
+        if (state) {
+          setCapturedImages(state.capturedImages ?? []);
+          setCapturedTexts(state.capturedTexts ?? []);
+          setCapturedAudios(state.capturedAudios ?? []);
+          setMemoryItems(state.memoryItems ?? memoryNotes);
+          setPositions(state.positions ?? {});
+          setScales(state.scales ?? {});
+          setHiddenIds(state.hiddenIds ?? []);
+          setRooms(state.rooms?.length ? state.rooms : [{ id: "sample", name: "Sample room", isSample: true }]);
+          setCurrentRoomId(state.currentRoomId ?? "sample");
+        }
+      })
+      .catch(() => setRelationSignal("Drawer could not restore saved fragments. New work will still stay in this session."))
+      .finally(() => setHydrated(true));
+  }, [deviceId]);
+
+  useEffect(() => {
+    if (!hydrated || !deviceId) return;
+    const timer = window.setTimeout(() => {
+      fetch("/api/state", {
+        method: "PUT",
+        headers: { "content-type": "application/json", "x-drawer-device": deviceId },
+        body: JSON.stringify({ capturedImages, capturedTexts, capturedAudios, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId }),
+      }).catch(() => undefined);
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [hydrated, deviceId, capturedImages, capturedTexts, capturedAudios, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId]);
+
+  useEffect(() => () => {
+    if (recordingTimer.current) window.clearInterval(recordingTimer.current);
+    mediaRecorder.current?.stream.getTracks().forEach((track) => track.stop());
+  }, []);
 
   function readFiles(files: FileList | File[]) {
     [...files].filter((file) => file.type.startsWith("image/")).slice(0, 6).forEach((file) => {
@@ -211,25 +268,91 @@ export default function Home() {
     setPendingImages((current) => current.filter((image) => image.id !== id));
   }
 
-  function keepFragment() {
-    const withNotes = pendingImages.map((image) => ({ ...image, note: "", roomId: currentRoomId }));
-    setCapturedImages((current) => [...current, ...withNotes]);
-    if (draft.trim()) {
-      setCapturedTexts((current) => [...current, {
-        id: `text-${Date.now()}`,
-        text: draft.trim(),
-        date: "Just now · text note",
-        roomId: currentRoomId,
-      }]);
+  async function uploadAsset(blob: Blob, name: string) {
+    const form = new FormData();
+    form.append("file", blob, name);
+    const response = await fetch("/api/assets", { method: "POST", headers: { "x-drawer-device": deviceId }, body: form });
+    if (!response.ok) throw new Error("Upload failed");
+    return (await response.json()).src as string;
+  }
+
+  async function toggleRecording() {
+    if (recording) {
+      mediaRecorder.current?.stop();
+      return;
     }
-    setSaved(true);
-    window.setTimeout(() => {
-      setSaved(false);
-      setPendingImages([]);
-      setDraft("");
+    try {
+      setRecordingError("");
+      if (recordedAudio) URL.revokeObjectURL(recordedAudio.url);
+      setRecordedAudio(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const preferredType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
+      const recorder = new MediaRecorder(stream, { mimeType: preferredType });
+      audioChunks.current = [];
+      recorder.ondataavailable = (event) => { if (event.data.size) audioChunks.current.push(event.data); };
+      recorder.onstop = () => {
+        const duration = Math.max(1, Math.round((Date.now() - recordingStartedAt.current) / 1000));
+        const blob = new Blob(audioChunks.current, { type: recorder.mimeType || "audio/webm" });
+        setRecordedAudio({ blob, url: URL.createObjectURL(blob), duration });
+        setRecording(false);
+        setRecordingSeconds(duration);
+        stream.getTracks().forEach((track) => track.stop());
+        if (recordingTimer.current) window.clearInterval(recordingTimer.current);
+      };
+      mediaRecorder.current = recorder;
+      recordingStartedAt.current = Date.now();
+      setRecordingSeconds(0);
+      setRecording(true);
+      recorder.start(250);
+      recordingTimer.current = window.setInterval(() => setRecordingSeconds(Math.floor((Date.now() - recordingStartedAt.current) / 1000)), 500);
+    } catch {
+      setRecordingError("Microphone access was not available. You can still leave a written thought.");
       setRecording(false);
-      setView("room");
-    }, 900);
+    }
+  }
+
+  function discardRecording() {
+    if (recordedAudio) URL.revokeObjectURL(recordedAudio.url);
+    setRecordedAudio(null);
+    setRecordingSeconds(0);
+  }
+
+  async function keepFragment() {
+    if (saving || recording || !deviceId) return;
+    setSaving(true);
+    setRecordingError("");
+    try {
+      const uploadedImages = await Promise.all(pendingImages.map(async (image) => {
+        const blob = await (await fetch(image.src)).blob();
+        const src = await uploadAsset(blob, image.name);
+        return { ...image, src, note: "", roomId: currentRoomId };
+      }));
+      setCapturedImages((current) => [...current, ...uploadedImages]);
+      if (draft.trim()) {
+        setCapturedTexts((current) => [...current, {
+          id: `text-${Date.now()}`,
+          text: draft.trim(),
+          date: "Just now · text note",
+          roomId: currentRoomId,
+        }]);
+      }
+      if (recordedAudio) {
+        const src = await uploadAsset(recordedAudio.blob, `voice-${Date.now()}.webm`);
+        setCapturedAudios((current) => [...current, { id: `audio-${Date.now()}`, src, date: "Just now · voice note", duration: recordedAudio.duration, roomId: currentRoomId }]);
+      }
+      setSaved(true);
+      window.setTimeout(() => {
+        setSaved(false);
+        setPendingImages([]);
+        setDraft("");
+        discardRecording();
+        setView("room");
+      }, 700);
+    } catch {
+      setRecordingError("This fragment could not be saved yet. Nothing has been removed—please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function startMove(event: ReactPointerEvent<HTMLElement>, id: string) {
@@ -265,7 +388,7 @@ export default function Home() {
     dragState.current = null;
     setDraggingId(null);
     setPositions((current) => ({ ...current, [id]: finalPosition }));
-    const kind = id.startsWith("memory-") ? "This memory" : id.startsWith("user-") ? "Your new fragment" : "This fragment";
+    const kind = id.startsWith("memory-") ? "This memory" : id.startsWith("audio-") ? "This voice note" : id.startsWith("user-") ? "Your new fragment" : "This fragment";
     setRelationSignal(`${kind} was moved. Drawer will treat its new neighbors as a relationship signal.`);
     window.setTimeout(() => setRelationSignal(null), 3200);
   }
@@ -362,13 +485,19 @@ export default function Home() {
 
   const roomImages = capturedImages.filter((image) => (image.roomId ?? "sample") === currentRoomId);
   const roomTexts = capturedTexts.filter((text) => text.roomId === currentRoomId);
+  const roomAudios = capturedAudios.filter((audio) => audio.roomId === currentRoomId);
   const visibleSampleFragments = currentRoom.isSample
     ? fragments.filter((fragment) => !hiddenIds.includes(fragment.id)).length
       + memoryItems.filter((_, index) => !hiddenIds.includes(`memory-${index}`)).length
     : 0;
   const visibleRoomCount = visibleSampleFragments
     + roomImages.filter((image) => !hiddenIds.includes(image.id)).length
-    + roomTexts.filter((text) => !hiddenIds.includes(text.id)).length;
+    + roomTexts.filter((text) => !hiddenIds.includes(text.id)).length
+    + roomAudios.filter((audio) => !hiddenIds.includes(audio.id)).length;
+
+  function formatDuration(seconds: number) {
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  }
 
   return (
     <main className={`app app--${view}`}>
@@ -453,20 +582,27 @@ export default function Home() {
               <div className="voice-card">
                 <button
                   className={recording ? "record-button is-recording" : "record-button"}
-                  onClick={() => setRecording((value) => !value)}
+                  onClick={toggleRecording}
                   aria-label={recording ? "Stop recording" : "Start recording"}
                 >
                   <span />
                 </button>
-                <div>
-                  <strong>{recording ? "Listening…" : "Hold a thought"}</strong>
-                  <p>{recording ? "Say it before it becomes clear." : "Tell me what caught you—even if you don’t know why."}</p>
+                <div className="voice-card-copy">
+                  <strong>{recording ? `Listening… ${formatDuration(recordingSeconds)}` : recordedAudio ? `Voice note ready · ${formatDuration(recordedAudio.duration)}` : "Hold a thought"}</strong>
+                  <p>{recording ? "Say it before it becomes clear. Tap the square when you are done." : recordedAudio ? "Listen once, or keep it exactly as it arrived." : "Tell me what caught you—even if you don’t know why."}</p>
+                  {recordedAudio && !recording && (
+                    <div className="recorded-audio">
+                      <audio controls src={recordedAudio.url} />
+                      <button type="button" onClick={discardRecording}>Discard</button>
+                    </div>
+                  )}
                 </div>
               </div>
+              {recordingError && <p className="recording-error" role="status">{recordingError}</p>}
               <textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Or leave an unfinished sentence…" aria-label="Unfinished thought" />
             </div>
-            <button className="drawer-handle" onClick={keepFragment} disabled={!pendingImages.length && !draft && !recording}>
-              <span>{saved ? "Kept for later." : "Close the drawer"}</span>
+            <button className="drawer-handle" onClick={keepFragment} disabled={saving || recording || (!pendingImages.length && !draft.trim() && !recordedAudio)}>
+              <span>{saving ? "Keeping it safe…" : saved ? "Kept for later." : "Close the drawer"}</span>
               <span aria-hidden="true">↓</span>
             </button>
           </div>
@@ -584,6 +720,26 @@ export default function Home() {
                     </button>
                   );
                 })}
+
+                {roomAudios.filter((audio) => !hiddenIds.includes(audio.id)).map((audio, index) => (
+                  <article
+                    key={audio.id}
+                    className="audio-fragment"
+                    style={{
+                      left: `${760 + (index % 3) * 310}px`,
+                      top: `${530 + (index % 2) * 230}px`,
+                      transform: itemTransform(audio.id),
+                    }}
+                    onPointerDown={(event) => startMove(event, audio.id)}
+                    onPointerMove={moveFragment}
+                    onPointerUp={(event) => endMove(event, audio.id)}
+                    onPointerCancel={(event) => endMove(event, audio.id)}
+                  >
+                    <small>{audio.date}</small>
+                    <strong>Voice note · {formatDuration(audio.duration)}</strong>
+                    <audio controls src={audio.src} onPointerDown={(event) => event.stopPropagation()} />
+                  </article>
+                ))}
 
                 {currentRoom.isSample && memoryItems.map((note, index) => {
                   const id = `memory-${index}`;
