@@ -9,7 +9,11 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const file = form.get("file");
   if (!(file instanceof File)) return Response.json({ error: "A file is required" }, { status: 400 });
-  if (!ALLOWED_TYPES.has(file.type) || file.size > 15_000_000) return Response.json({ error: "Unsupported or oversized file" }, { status: 415 });
+  // MediaRecorder commonly appends codec parameters (for example
+  // `audio/webm;codecs=opus`). Validate the base MIME type while preserving the
+  // full value in R2 so browsers can still decode the recording correctly.
+  const baseType = file.type.toLowerCase().split(";", 1)[0].trim();
+  if (!ALLOWED_TYPES.has(baseType) || file.size > 15_000_000) return Response.json({ error: "Unsupported or oversized file" }, { status: 415 });
   const key = crypto.randomUUID();
   await env.UPLOADS.put(key, file.stream(), {
     httpMetadata: { contentType: file.type },
