@@ -116,7 +116,7 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .room-canvas::after { content: ""; pointer-events: none; position: sticky; z-index: 30; display: block; left: 0; top: 0; width: 100%; height: 100%; box-shadow: inset 0 0 55px rgba(244,243,239,.7); }
 .room-canvas { width: 100%; height: 100%; }
 .room-stage-space { position: relative; }
-.room-stage { width: 1900px; height: 1180px; position: relative; transform-origin: left top; background-color: rgba(255,255,255,.08); transition: background-color .25s ease; }
+.room-stage { width: 3200px; height: 2200px; position: relative; transform-origin: left top; background-color: rgba(255,255,255,.08); transition: background-color .25s ease; }
 .room-stage.has-grid { background-color: rgba(255,255,255,.14); background-image: linear-gradient(rgba(23,24,21,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(23,24,21,.055) 1px, transparent 1px), linear-gradient(rgba(23,24,21,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(23,24,21,.025) 1px, transparent 1px); background-size: 88px 88px, 88px 88px, 22px 22px, 22px 22px; }
 .room-stage::after { content: "Drag to arrange · scroll to wander"; position: absolute; right: 34px; top: 26px; font-family: var(--font-geist-mono); color: #a0a199; text-transform: uppercase; letter-spacing: .1em; font-size: 7px; }
 .canvas-zone { position: absolute; z-index: 0; pointer-events: none; font-family: var(--font-geist-mono); text-transform: uppercase; letter-spacing: .12em; color: rgba(23,24,21,.27); }

@@ -70,6 +70,9 @@ const memoryNotes = [
   },
 ];
 
+const ROOM_WIDTH = 3200;
+const ROOM_HEIGHT = 2200;
+
 export default function Home() {
   const [view, setView] = useState<View>("landing");
   const [threadState, setThreadState] = useState<ThreadState>("idle");
@@ -301,6 +304,13 @@ export default function Home() {
 
   const roomImages = capturedImages.filter((image) => (image.roomId ?? "sample") === currentRoomId);
   const roomTexts = capturedTexts.filter((text) => text.roomId === currentRoomId);
+  const visibleSampleFragments = currentRoom.isSample
+    ? fragments.filter((fragment) => !hiddenIds.includes(fragment.id)).length
+      + memoryItems.filter((_, index) => !hiddenIds.includes(`memory-${index}`)).length
+    : 0;
+  const visibleRoomCount = visibleSampleFragments
+    + roomImages.filter((image) => !hiddenIds.includes(image.id)).length
+    + roomTexts.filter((text) => !hiddenIds.includes(text.id)).length;
 
   return (
     <main className={`app app--${view}`}>
@@ -330,7 +340,7 @@ export default function Home() {
           <div className="landing-art" aria-hidden="true">
             <div className="landing-photo landing-photo--one"><img src="/fragment-UN7-iS_79oE.jpg" alt="" /></div>
             <div className="landing-photo landing-photo--two"><img src="/fragment-f31YwqhKrug.jpg" alt="" /></div>
-            <p className="landing-whisper">“not fully inside”</p>
+            <p className="landing-whisper">“The image and the thought, kept together.”</p>
             <span className="landing-thread" />
           </div>
           <p className="landing-footer">The image is still there. The thought is gone. Drawer keeps both.</p>
@@ -416,7 +426,7 @@ export default function Home() {
                 <button onClick={renameRoom} aria-label="Rename this room">Edit</button>
                 <button onClick={addRoom} aria-label="Create a new room">+</button>
               </div>
-              <p>{(currentRoom.isSample ? 12 : 0) + roomImages.length + roomTexts.length} fragments · last opened just now</p>
+              <p>{visibleRoomCount} fragments · last opened just now</p>
             </div>
             <div className="room-actions">
               <button className={`tool-button${showGrid ? " is-active" : ""}`} onClick={() => setShowGrid((value) => !value)} aria-pressed={showGrid}>
@@ -446,7 +456,7 @@ export default function Home() {
                 <button onClick={() => setZoom((value) => Math.min(1.6, Number((value + .1).toFixed(2))))} aria-label="Zoom in">+</button>
                 <button className="zoom-fit" onClick={() => setZoom(.58)}>Fit</button>
               </div>
-              <div className="room-stage-space" style={{ width: `${1900 * zoom}px`, height: `${1180 * zoom}px` }}>
+              <div className="room-stage-space" style={{ width: `${ROOM_WIDTH * zoom}px`, height: `${ROOM_HEIGHT * zoom}px` }}>
               <div className={`room-stage${showGrid ? " has-grid" : ""}`} style={{ transform: `scale(${zoom})` }}>
                 <div className="canvas-zone canvas-zone--visual" aria-hidden="true">
                   <span>Visual field</span>
