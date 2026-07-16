@@ -134,6 +134,7 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .fragment { position: absolute; margin: 0; transition: opacity .45s ease, filter .45s ease; cursor: grab; touch-action: none; user-select: none; }
 .fragment:active { cursor: grabbing; }
 .fragment img { display: block; width: 100%; height: auto; object-fit: contain; filter: saturate(.52) contrast(.94); pointer-events: none; }
+.fragment--original-color img { filter: none; }
 .fragment figcaption { margin-top: 7px; font-family: var(--font-geist-mono); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-size: 7px; }
 .fragment--corridor { left: 150px; top: 120px; width: 255px; }
 .fragment--subway { left: 690px; top: 80px; width: 190px; }
