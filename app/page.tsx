@@ -412,7 +412,7 @@ export default function Home() {
     dragState.current = null;
     setDraggingId(null);
     setPositions((current) => ({ ...current, [id]: finalPosition }));
-    const kind = id.startsWith("memory-") ? "This memory" : id.startsWith("audio-") ? "This voice note" : id.startsWith("user-") ? "Your new fragment" : "This fragment";
+    const kind = id.startsWith("ai-thread-") ? "This Living Thread" : id.startsWith("memory-") ? "This memory" : id.startsWith("audio-") ? "This voice note" : id.startsWith("user-") ? "Your new fragment" : "This fragment";
     setRelationSignal(`${kind} was moved. Drawer will treat its new neighbors as a relationship signal.`);
     window.setTimeout(() => setRelationSignal(null), 3200);
   }
@@ -434,6 +434,37 @@ export default function Home() {
       width: `${distance}px`,
       transform: `rotate(${Math.atan2(dy, dx)}rad)`,
       opacity: hidden || moving || distance > 560 ? 0 : Math.max(.18, 1 - distance / 760),
+    };
+  }
+
+  function visualHome(targetId: string): Point | null {
+    if (fragmentHomes[targetId]) return fragmentHomes[targetId];
+    const imageIndex = roomImages.findIndex((item) => item.id === targetId);
+    if (imageIndex >= 0) {
+      const image = roomImages[imageIndex];
+      const width = image.width >= image.height ? 300 : 190;
+      return { x: 210 + (imageIndex % 4) * 330 + width / 2, y: 180 + (imageIndex % 3) * 290 + 110 };
+    }
+    return null;
+  }
+
+  function aiConnectorStyle(thread: AiThread, threadIndex: number, targetId: string) {
+    const threadId = `ai-thread-${thread.id}`;
+    const threadOffset = positions[threadId] ?? { x: 0, y: 0 };
+    const targetOffset = positions[targetId] ?? { x: 0, y: 0 };
+    const from = { x: 1765 + threadIndex * 330 + threadOffset.x, y: 950 + threadOffset.y };
+    const target = visualHome(targetId);
+    if (!target) return { display: "none" };
+    const to = { x: target.x + targetOffset.x, y: target.y + targetOffset.y };
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    return {
+      left: `${from.x}px`,
+      top: `${from.y}px`,
+      width: `${distance}px`,
+      transform: `rotate(${Math.atan2(dy, dx)}rad)`,
+      opacity: draggingId === threadId || draggingId === targetId ? 0 : .72,
     };
   }
 
@@ -512,6 +543,7 @@ export default function Home() {
     setAnalyzing(true);
     setAnalysisError("");
     setActiveAiThreadId(null);
+    setThreadState("idle");
     try {
       const response = await fetch("/api/analyze", {
         method: "POST",
@@ -830,7 +862,7 @@ export default function Home() {
                   );
                 })}
 
-                {currentRoom.isSample && <button
+                {currentRoom.isSample && !currentAiThreads.length && <button
                 className={`living-thread${threadState !== "idle" ? " is-open" : ""}`}
                 onClick={() => setThreadState(threadState === "idle" ? "evidence" : "idle")}
                 aria-expanded={threadState !== "idle"}
@@ -839,7 +871,7 @@ export default function Home() {
                 <span><strong>Thresholds</strong><small>7 fragments across 18 days</small></span>
                 </button>}
 
-                {currentRoom.isSample && threadState !== "idle" && (
+                {currentRoom.isSample && !currentAiThreads.length && threadState !== "idle" && (
                 <aside className="thread-card">
                   <div className="thread-card-heading">
                     <p>Living Thread 01</p>
@@ -862,12 +894,22 @@ export default function Home() {
                 </aside>
                 )}
 
+                {activeAiThread && currentAiThreads.map((thread, threadIndex) => thread.id === activeAiThread.id
+                  ? thread.fragmentIds.map((targetId) => (
+                    <span key={`ai-line-${thread.id}-${targetId}`} className="ai-thread-connector" style={aiConnectorStyle(thread, threadIndex, targetId)} aria-hidden="true" />
+                  ))
+                  : null)}
+
                 {currentAiThreads.map((thread, index) => (
                   <button
                     key={`ai-${thread.id}`}
                     className={`living-thread living-thread--generated${activeAiThreadId === thread.id ? " is-open" : ""}`}
-                    style={{ left: `${1650 + index * 330}px`, top: "920px" }}
+                    style={{ left: `${1650 + index * 330}px`, top: "920px", transform: itemTransform(`ai-thread-${thread.id}`) }}
                     onClick={() => setActiveAiThreadId(activeAiThreadId === thread.id ? null : thread.id)}
+                    onPointerDown={(event) => startMove(event, `ai-thread-${thread.id}`)}
+                    onPointerMove={moveFragment}
+                    onPointerUp={(event) => endMove(event, `ai-thread-${thread.id}`)}
+                    onPointerCancel={(event) => endMove(event, `ai-thread-${thread.id}`)}
                   >
                     <span className="thread-pulse" />
                     <span><strong>{thread.title}</strong><small>{thread.fragmentIds.length} connected fragments · GPT-5.6</small></span>

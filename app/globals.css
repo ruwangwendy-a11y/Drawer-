@@ -177,6 +177,11 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .dynamic-connector::after { right: -2px; }
 .living-thread { position: absolute; z-index: 7; left: 1010px; top: 780px; border: 0; background: transparent; display: flex; align-items: center; gap: 11px; text-align: left; cursor: pointer; }
 .living-thread--generated { min-width: 240px; padding: 12px 14px; border: 1px solid rgba(111,120,99,.28); background: rgba(244,243,239,.78); backdrop-filter: blur(12px); }
+.living-thread--generated:active { cursor: grabbing; }
+.ai-thread-connector { position: absolute; z-index: 6; height: 0; border-top: 1px dashed rgba(111,120,99,.72); transform-origin: left center; pointer-events: none; transition: opacity .2s ease; }
+.ai-thread-connector::before, .ai-thread-connector::after { content: ""; position: absolute; top: -3px; width: 5px; height: 5px; border-radius: 50%; background: var(--moss); }
+.ai-thread-connector::before { left: -2px; }
+.ai-thread-connector::after { right: -2px; }
 .thread-pulse { width: 8px; height: 8px; border: 1px solid var(--moss); border-radius: 50%; position: relative; }
 .thread-pulse::after { content: ""; position: absolute; inset: -7px; border: 1px solid rgba(111,120,99,.24); border-radius: 50%; animation: threadPulse 2.6s infinite; }
 @keyframes threadPulse { 50% { transform: scale(1.35); opacity: .2; } }
