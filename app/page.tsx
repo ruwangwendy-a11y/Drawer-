@@ -6,7 +6,7 @@ type View = "landing" | "drawer" | "room";
 type ThreadState = "idle" | "evidence" | "accepted" | "rejected";
 type CapturedImage = { id: string; src: string; name: string; note: string; date: string; width: number; height: number; roomId?: string };
 type CapturedText = { id: string; text: string; date: string; roomId: string };
-type CapturedAudio = { id: string; src: string; date: string; duration: number; roomId: string };
+type CapturedAudio = { id: string; src: string; date: string; duration: number; roomId: string; transcript?: string };
 type Point = { x: number; y: number };
 
 const fragmentHomes: Record<string, Point> = {
@@ -337,8 +337,17 @@ export default function Home() {
         }]);
       }
       if (recordedAudio) {
+        let transcript = "";
+        try {
+          const transcriptForm = new FormData();
+          transcriptForm.append("audio", recordedAudio.blob, `voice-${Date.now()}.webm`);
+          const transcriptResponse = await fetch("/api/transcribe", { method: "POST", body: transcriptForm });
+          if (transcriptResponse.ok) transcript = (await transcriptResponse.json()).transcript ?? "";
+        } catch {
+          // The original recording remains useful even when transcription is unavailable.
+        }
         const src = await uploadAsset(recordedAudio.blob, `voice-${Date.now()}.webm`);
-        setCapturedAudios((current) => [...current, { id: `audio-${Date.now()}`, src, date: "Just now · voice note", duration: recordedAudio.duration, roomId: currentRoomId }]);
+        setCapturedAudios((current) => [...current, { id: `audio-${Date.now()}`, src, date: "Just now · voice note", duration: recordedAudio.duration, roomId: currentRoomId, transcript }]);
       }
       setSaved(true);
       window.setTimeout(() => {
@@ -738,6 +747,7 @@ export default function Home() {
                     <small>{audio.date}</small>
                     <strong>Voice note · {formatDuration(audio.duration)}</strong>
                     <audio controls src={audio.src} onPointerDown={(event) => event.stopPropagation()} />
+                    {audio.transcript && <p className="audio-transcript">“{audio.transcript}”</p>}
                   </article>
                 ))}
 
