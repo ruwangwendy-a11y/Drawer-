@@ -115,6 +115,8 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .tool-button--primary { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 .tool-button--primary:hover { background: #2b2c28; border-color: #2b2c28; }
 .tool-button--discover { border-color: rgba(111,120,99,.55); background: rgba(232,233,226,.72); }
+.tool-button--show-all { border-color: rgba(111,120,99,.46); background: var(--ink); color: var(--paper); }
+.tool-button--show-all:hover { background: #2b2c28; color: white; }
 .tool-button:disabled { opacity: .55; cursor: wait; transform: none; }
 .grid-icon { width: 10px; height: 10px; display: inline-block; opacity: .68; background-image: linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px); background-size: 5px 5px; }
 .room-layout { height: calc(100vh - 172px); min-height: 610px; display: block; border: 1px solid var(--line); background: rgba(255,255,255,.14); }

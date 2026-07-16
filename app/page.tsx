@@ -203,6 +203,15 @@ export default function Home() {
   }, [sparkOpen]);
 
   useEffect(() => {
+    if (!activeAiThreadId) return;
+    const showEverythingOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActiveAiThreadId(null);
+    };
+    window.addEventListener("keydown", showEverythingOnEscape);
+    return () => window.removeEventListener("keydown", showEverythingOnEscape);
+  }, [activeAiThreadId]);
+
+  useEffect(() => {
     const stored = window.localStorage.getItem("drawer-device-id");
     const id = stored ?? crypto.randomUUID();
     if (!stored) window.localStorage.setItem("drawer-device-id", id);
@@ -738,6 +747,11 @@ export default function Home() {
               <button className="tool-button tool-button--discover" onClick={discoverThreads} disabled={analyzing}>
                 <span aria-hidden="true">◎</span> {analyzing ? "Noticing…" : currentAiThreads.length ? "Refresh threads" : "Discover threads"}
               </button>
+              {activeAiThread && (
+                <button className="tool-button tool-button--show-all" onClick={() => setActiveAiThreadId(null)}>
+                  <span aria-hidden="true">×</span> Show all
+                </button>
+              )}
               <button className="tool-button" onClick={addTextToRoom}><span aria-hidden="true">T</span> Add text</button>
               <button className="tool-button tool-button--primary" onClick={() => setView("drawer")}><span aria-hidden="true">+</span> Add a fragment</button>
             </div>
