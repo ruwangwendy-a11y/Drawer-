@@ -170,7 +170,12 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .audio-transcript { margin: 12px 0 0; padding-top: 11px; border-top: 1px solid var(--soft-line); font-family: Georgia, serif; font-size: 11px; line-height: 1.5; color: #62645d; }
 .fragment.is-muted { opacity: .18; filter: grayscale(1); }
 .fragment.is-focused { transform: scale(1.03); z-index: 3; }
+.room-stage .is-ai-muted { opacity: .28; filter: grayscale(.72) saturate(.42); }
+.room-stage .is-ai-related { opacity: 1; filter: none; z-index: 9; }
+.fragment.is-ai-related { box-shadow: 0 20px 55px rgba(86,96,75,.16); }
+.memory-fragment.is-ai-related, .audio-fragment.is-ai-related { border-color: rgba(111,120,99,.62); background: rgba(249,249,246,.78); box-shadow: 0 18px 50px rgba(86,96,75,.15); }
 .room-canvas--thread .fragment { opacity: .92; }
+.room-canvas--thread .fragment.is-ai-muted { opacity: .28; }
 .dynamic-connector { position: absolute; z-index: 4; height: 0; border-top: 1px dashed rgba(111,120,99,.62); transform-origin: left center; pointer-events: none; transition: width .42s ease, transform .42s ease, opacity .2s ease; }
 .dynamic-connector::before, .dynamic-connector::after { content: ""; position: absolute; top: -3px; width: 5px; height: 5px; border-radius: 50%; background: var(--moss); opacity: .58; }
 .dynamic-connector::before { left: -2px; }

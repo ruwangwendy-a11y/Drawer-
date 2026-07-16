@@ -473,6 +473,11 @@ export default function Home() {
     return `translate3d(${point.x}px, ${point.y}px, 0) scale(${scales[id] ?? 1})`;
   }
 
+  function aiFocusClass(id: string) {
+    if (!activeAiThread) return "";
+    return activeAiThread.fragmentIds.includes(id) ? " is-ai-related" : " is-ai-muted";
+  }
+
   function resizeSelected(delta: number) {
     if (!selectedId) return;
     setScales((current) => ({ ...current, [selectedId]: Math.min(1.8, Math.max(.55, (current[selectedId] ?? 1) + delta)) }));
@@ -762,7 +767,7 @@ export default function Home() {
                 {currentRoom.isSample && fragments.filter((fragment) => !hiddenIds.includes(fragment.id)).map((fragment) => (
                 <figure
                   key={fragment.id}
-                  className={`${fragment.className}${focusedFragment === fragment.id ? " is-focused" : ""}${focusedFragment && focusedFragment !== fragment.id ? " is-muted" : ""}`}
+                  className={`${fragment.className}${focusedFragment === fragment.id ? " is-focused" : ""}${focusedFragment && focusedFragment !== fragment.id ? " is-muted" : ""}${aiFocusClass(fragment.id)}`}
                   style={{ transform: itemTransform(fragment.id) }}
                   onPointerDown={(event) => startMove(event, fragment.id)}
                   onPointerMove={moveFragment}
@@ -776,7 +781,7 @@ export default function Home() {
                 {roomImages.filter((image) => !hiddenIds.includes(image.id)).map((image, index) => (
                 <figure
                   key={image.id}
-                  className="fragment fragment--captured"
+                  className={`fragment fragment--captured${aiFocusClass(image.id)}`}
                   style={{
                     left: `${210 + (index % 4) * 330}px`,
                     top: `${180 + (index % 3) * 290}px`,
@@ -800,7 +805,7 @@ export default function Home() {
                   return (
                     <button
                       key={id}
-                      className="memory-fragment memory-fragment--new"
+                      className={`memory-fragment memory-fragment--new${aiFocusClass(id)}`}
                       style={{
                         left: `${350 + (index % 3) * 300}px`,
                         top: `${380 + (index % 2) * 190}px`,
@@ -820,7 +825,7 @@ export default function Home() {
                 {roomAudios.filter((audio) => !hiddenIds.includes(audio.id)).map((audio, index) => (
                   <article
                     key={audio.id}
-                    className="audio-fragment"
+                    className={`audio-fragment${aiFocusClass(audio.id)}`}
                     style={{
                       left: `${760 + (index % 3) * 310}px`,
                       top: `${530 + (index % 2) * 230}px`,
@@ -844,7 +849,7 @@ export default function Home() {
                   return (
                     <button
                       key={id}
-                      className={`memory-fragment${focusedFragment === note.target ? " is-active" : ""}`}
+                      className={`memory-fragment${focusedFragment === note.target ? " is-active" : ""}${aiFocusClass(id)}`}
                       style={{
                         left: `${memoryHomes[index].x - 115}px`,
                         top: `${memoryHomes[index].y - 65}px`,
@@ -903,7 +908,7 @@ export default function Home() {
                 {currentAiThreads.map((thread, index) => (
                   <button
                     key={`ai-${thread.id}`}
-                    className={`living-thread living-thread--generated${activeAiThreadId === thread.id ? " is-open" : ""}`}
+                    className={`living-thread living-thread--generated${activeAiThreadId === thread.id ? " is-open" : ""}${activeAiThread && activeAiThreadId !== thread.id ? " is-ai-muted" : ""}`}
                     style={{ left: `${1650 + index * 330}px`, top: "920px", transform: itemTransform(`ai-thread-${thread.id}`) }}
                     onClick={() => setActiveAiThreadId(activeAiThreadId === thread.id ? null : thread.id)}
                     onPointerDown={(event) => startMove(event, `ai-thread-${thread.id}`)}
