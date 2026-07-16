@@ -8,6 +8,16 @@ type CapturedImage = { id: string; src: string; name: string; note: string; date
 type CapturedText = { id: string; text: string; date: string; roomId: string };
 type CapturedAudio = { id: string; src: string; date: string; duration: number; roomId: string; transcript?: string };
 type Point = { x: number; y: number };
+type AiThread = {
+  id: string;
+  title: string;
+  summary: string;
+  visualEvidence: string[];
+  languageEvidence: string[];
+  timeEvidence: string;
+  fragmentIds: string[];
+  spark: string;
+};
 
 const fragmentHomes: Record<string, Point> = {
   corridor: { x: 278, y: 280 },
@@ -165,6 +175,10 @@ export default function Home() {
   const [recordedAudio, setRecordedAudio] = useState<{ blob: Blob; url: string; duration: number } | null>(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [recordingError, setRecordingError] = useState("");
+  const [aiThreads, setAiThreads] = useState<Record<string, AiThread[]>>({});
+  const [activeAiThreadId, setActiveAiThreadId] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const dragState = useRef<{ id: string; startX: number; startY: number; origin: Point; target: HTMLElement } | null>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
@@ -204,6 +218,7 @@ export default function Home() {
           setCapturedImages(state.capturedImages ?? []);
           setCapturedTexts(state.capturedTexts ?? []);
           setCapturedAudios(state.capturedAudios ?? []);
+          setAiThreads(state.aiThreads ?? {});
           setMemoryItems(state.memoryItems ?? memoryNotes);
           setPositions(state.positions ?? {});
           setScales(state.scales ?? {});
@@ -222,11 +237,11 @@ export default function Home() {
       fetch("/api/state", {
         method: "PUT",
         headers: { "content-type": "application/json", "x-drawer-device": deviceId },
-        body: JSON.stringify({ capturedImages, capturedTexts, capturedAudios, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId }),
+        body: JSON.stringify({ capturedImages, capturedTexts, capturedAudios, aiThreads, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId }),
       }).catch(() => undefined);
     }, 650);
     return () => window.clearTimeout(timer);
-  }, [hydrated, deviceId, capturedImages, capturedTexts, capturedAudios, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId]);
+  }, [hydrated, deviceId, capturedImages, capturedTexts, capturedAudios, aiThreads, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId]);
 
   useEffect(() => () => {
     if (recordingTimer.current) window.clearInterval(recordingTimer.current);
@@ -492,9 +507,46 @@ export default function Home() {
     setRenamingRoom(false);
   }
 
+  async function discoverThreads() {
+    if (analyzing) return;
+    setAnalyzing(true);
+    setAnalysisError("");
+    setActiveAiThreadId(null);
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          roomName: currentRoom.name,
+          images: [
+            ...(currentRoom.isSample ? fragments.filter((item) => !hiddenIds.includes(item.id)).map(({ id, src, date }) => ({ id, src, date })) : []),
+            ...roomImages.filter((item) => !hiddenIds.includes(item.id)).map(({ id, src, date }) => ({ id, src, date })),
+          ],
+          texts: [
+            ...(currentRoom.isSample ? memoryItems.map((item, index) => ({ id: `memory-${index}`, text: item.text, date: item.date })) : []),
+            ...roomTexts.filter((item) => !hiddenIds.includes(item.id)).map(({ id, text, date }) => ({ id, text, date })),
+          ],
+          audios: roomAudios.filter((item) => !hiddenIds.includes(item.id) && item.transcript).map(({ id, transcript, date }) => ({ id, transcript, date })),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Drawer could not find a thread yet");
+      const threads = (result.threads ?? []) as AiThread[];
+      setAiThreads((current) => ({ ...current, [currentRoomId]: threads }));
+      if (threads[0]) setActiveAiThreadId(threads[0].id);
+      else setAnalysisError("No repeated thread was strong enough yet. Add another fragment and return later.");
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : "Drawer could not find a thread yet");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
   const roomImages = capturedImages.filter((image) => (image.roomId ?? "sample") === currentRoomId);
   const roomTexts = capturedTexts.filter((text) => text.roomId === currentRoomId);
   const roomAudios = capturedAudios.filter((audio) => audio.roomId === currentRoomId);
+  const currentAiThreads = aiThreads[currentRoomId] ?? [];
+  const activeAiThread = currentAiThreads.find((thread) => thread.id === activeAiThreadId) ?? null;
   const visibleSampleFragments = currentRoom.isSample
     ? fragments.filter((fragment) => !hiddenIds.includes(fragment.id)).length
       + memoryItems.filter((_, index) => !hiddenIds.includes(`memory-${index}`)).length
@@ -646,6 +698,9 @@ export default function Home() {
                 </div>
               )}
               <button className="tool-button" onClick={() => setSparkOpen(true)}><span aria-hidden="true">✦</span> Give me a word</button>
+              <button className="tool-button tool-button--discover" onClick={discoverThreads} disabled={analyzing}>
+                <span aria-hidden="true">◎</span> {analyzing ? "Noticing…" : currentAiThreads.length ? "Refresh threads" : "Discover threads"}
+              </button>
               <button className="tool-button" onClick={addTextToRoom}><span aria-hidden="true">T</span> Add text</button>
               <button className="tool-button tool-button--primary" onClick={() => setView("drawer")}><span aria-hidden="true">+</span> Add a fragment</button>
             </div>
@@ -806,8 +861,43 @@ export default function Home() {
                   <button className="return-button" onClick={() => setSparkOpen(true)}>Return to this thread <span>→</span></button>
                 </aside>
                 )}
+
+                {currentAiThreads.map((thread, index) => (
+                  <button
+                    key={`ai-${thread.id}`}
+                    className={`living-thread living-thread--generated${activeAiThreadId === thread.id ? " is-open" : ""}`}
+                    style={{ left: `${1650 + index * 330}px`, top: "1740px" }}
+                    onClick={() => setActiveAiThreadId(activeAiThreadId === thread.id ? null : thread.id)}
+                  >
+                    <span className="thread-pulse" />
+                    <span><strong>{thread.title}</strong><small>{thread.fragmentIds.length} connected fragments · GPT-5.6</small></span>
+                  </button>
+                ))}
+
+                {activeAiThread && (
+                  <aside className="thread-card thread-card--generated">
+                    <div className="thread-card-heading">
+                      <p>Living Thread · GPT-5.6</p>
+                      <button onClick={() => setActiveAiThreadId(null)} aria-label="Close thread">×</button>
+                    </div>
+                    <h2>{activeAiThread.title}</h2>
+                    <p className="thread-summary">{activeAiThread.summary}</p>
+                    <dl className="evidence-list">
+                      <div><dt>Visual</dt><dd>{activeAiThread.visualEvidence.join(" · ") || "No visual evidence cited."}</dd></div>
+                      <div><dt>Language</dt><dd>{activeAiThread.languageEvidence.join(" · ") || "No language evidence cited."}</dd></div>
+                      <div><dt>Time</dt><dd>{activeAiThread.timeEvidence}</dd></div>
+                    </dl>
+                    <div className="thread-feedback">
+                      <span>A hypothesis, not a conclusion.</span>
+                      <button onClick={() => setRelationSignal("This thread feels true. Drawer will keep it close.")}>It does</button>
+                      <button onClick={() => { setAiThreads((current) => ({ ...current, [currentRoomId]: currentAiThreads.filter((item) => item.id !== activeAiThread.id) })); setActiveAiThreadId(null); }}>Not really</button>
+                    </div>
+                    <button className="return-button" onClick={() => setSparkOpen(true)}>Return to this thread <span>→</span></button>
+                  </aside>
+                )}
               </div>
               </div>
+              {analysisError && <div className="analysis-toast" role="status"><span>{analysisError}</span><button onClick={() => setAnalysisError("")} aria-label="Dismiss">×</button></div>}
               {relationSignal && <div className="relation-toast">{relationSignal}</div>}
             </div>
           </div>
@@ -819,8 +909,8 @@ export default function Home() {
           <button className="spark-close" onClick={() => setSparkOpen(false)} aria-label="Close">×</button>
           <div className="spark-content">
             <p className="eyebrow">Return to this thread</p>
-            <h2 id="spark-title">Make something<br /><em>that never fully opens.</em></h2>
-            <p>Begin with the oldest image in <strong>Thresholds</strong>. Respond with sound instead of another image.</p>
+            <h2 id="spark-title">{activeAiThread ? activeAiThread.spark : <>Make something<br /><em>that never fully opens.</em></>}</h2>
+            <p>{activeAiThread ? <>Return to <strong>{activeAiThread.title}</strong>. Use this as an opening, not an instruction.</> : <>Begin with the oldest image in <strong>Thresholds</strong>. Respond with sound instead of another image.</>}</p>
             <div className="spark-source">
               <img src="/fragment-UN7-iS_79oE.jpg" alt="The oldest image in the Thresholds thread" />
               <span>June 12 · oldest fragment</span>

@@ -114,6 +114,8 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .tool-button.is-active { background: var(--paper-deep); border-color: rgba(111,120,99,.46); }
 .tool-button--primary { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 .tool-button--primary:hover { background: #2b2c28; border-color: #2b2c28; }
+.tool-button--discover { border-color: rgba(111,120,99,.55); background: rgba(232,233,226,.72); }
+.tool-button:disabled { opacity: .55; cursor: wait; transform: none; }
 .grid-icon { width: 10px; height: 10px; display: inline-block; opacity: .68; background-image: linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px); background-size: 5px 5px; }
 .room-layout { height: calc(100vh - 172px); min-height: 610px; display: block; border: 1px solid var(--line); background: rgba(255,255,255,.14); }
 .room-canvas { position: relative; overflow: auto; min-width: 0; transition: background .4s ease; scrollbar-width: none; overscroll-behavior: contain; }
@@ -174,6 +176,7 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .dynamic-connector::before { left: -2px; }
 .dynamic-connector::after { right: -2px; }
 .living-thread { position: absolute; z-index: 7; left: 1010px; top: 780px; border: 0; background: transparent; display: flex; align-items: center; gap: 11px; text-align: left; cursor: pointer; }
+.living-thread--generated { min-width: 240px; padding: 12px 14px; border: 1px solid rgba(111,120,99,.28); background: rgba(244,243,239,.78); backdrop-filter: blur(12px); }
 .thread-pulse { width: 8px; height: 8px; border: 1px solid var(--moss); border-radius: 50%; position: relative; }
 .thread-pulse::after { content: ""; position: absolute; inset: -7px; border: 1px solid rgba(111,120,99,.24); border-radius: 50%; animation: threadPulse 2.6s infinite; }
 @keyframes threadPulse { 50% { transform: scale(1.35); opacity: .2; } }
@@ -181,6 +184,7 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .living-thread strong { font-size: 11px; font-weight: 560; }
 .living-thread small { margin-top: 3px; font-family: var(--font-geist-mono); color: var(--muted); font-size: 7px; letter-spacing: .06em; text-transform: uppercase; }
 .thread-card { position: absolute; z-index: 10; left: 1190px; top: 610px; width: 370px; padding: 23px; background: rgba(244,243,239,.97); border: 1px solid var(--line); box-shadow: 0 22px 70px rgba(23,24,21,.12); animation: cardIn .35s ease both; }
+.thread-card--generated { left: 1640px; top: 1210px; width: 470px; }
 @keyframes cardIn { from { opacity: 0; transform: translateY(10px); } }
 .thread-card-heading { display: flex; justify-content: space-between; align-items: center; }
 .thread-card-heading p { margin: 0; font-family: var(--font-geist-mono); color: var(--muted); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; }
@@ -199,6 +203,8 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .thread-feedback button.is-selected { color: var(--paper); background: var(--ink); }
 .return-button { width: 100%; margin-top: 19px; padding: 12px 0; border: 0; border-top: 1px solid var(--line); background: transparent; display: flex; justify-content: space-between; font-size: 10px; cursor: pointer; }
 .relation-toast { position: absolute; z-index: 20; left: 50%; bottom: 18px; transform: translateX(-50%); max-width: 420px; padding: 10px 14px; border: 1px solid var(--line); background: rgba(244,243,239,.96); box-shadow: 0 12px 35px rgba(23,24,21,.1); color: #5f615a; font-size: 9px; line-height: 1.45; text-align: center; animation: cardIn .25s ease both; }
+.analysis-toast { position: absolute; z-index: 42; top: 64px; right: 18px; max-width: 360px; padding: 12px 14px; border: 1px solid rgba(139,81,74,.3); background: rgba(249,244,241,.96); color: #7c4b45; box-shadow: 0 12px 35px rgba(23,24,21,.1); display: flex; gap: 16px; align-items: start; font-size: 9px; line-height: 1.45; }
+.analysis-toast button { border: 0; background: transparent; color: inherit; cursor: pointer; }
 .edit-backdrop { position: fixed; z-index: 60; inset: 0; padding: 24px; background: rgba(23,24,21,.62); backdrop-filter: blur(8px); display: grid; place-items: center; }
 .edit-card { width: min(560px, 94vw); padding: 35px; background: var(--paper); box-shadow: 0 30px 100px rgba(0,0,0,.22); }
 .edit-card textarea { width: 100%; min-height: 180px; padding: 18px; resize: vertical; border: 1px solid var(--line); background: rgba(255,255,255,.36); font-family: Georgia, serif; font-size: 18px; line-height: 1.6; }
