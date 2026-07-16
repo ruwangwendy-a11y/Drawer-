@@ -157,11 +157,14 @@ The user responds through voice, text, or a new image. That response returns to 
 - A prepared sample archive so judges can try the experience immediately.
 - Clear boundary: AI offers hypotheses and prompts, not authoritative psychological interpretation.
 
-### Simulated for the first prototype
+### Current implementation status — July 16
 
-- Voice transcription may use a prepared transcript while the recording interaction is demonstrated.
-- Pattern analysis may use a deterministic sample response before live GPT-5.6 integration.
-- Persistence may remain device-local for the demo.
+- Image, text, and real browser audio capture are working.
+- Images and audio are stored durably; Rooms, positions, sizes, and notes survive refreshes.
+- Original user-uploaded image color is preserved.
+- The server-side `gpt-4o-mini-transcribe` route and transcript display are prepared.
+- The server-side GPT-5.6 Luna room-analysis route and evidence-based JSON structure are prepared.
+- The remaining dependency is the securely configured OpenAI API key, followed by live-output testing and UI wiring for generated Living Threads.
 
 ### Explicitly out of scope
 
@@ -183,17 +186,23 @@ The user responds through voice, text, or a new image. That response returns to 
 - Stabilize capture, canvas editing, Room switching, and Spark exit paths.
 - Initialize Git, document the current prototype, and push the first GitHub version.
 
-### July 17 — Persistence and complete capture
+### July 16 evening — Live AI connection
 
-- Persist Rooms, positions, sizes, notes, and uploads across refreshes.
-- Complete the voice capture/transcript path or an honest demo fallback.
-- Add clear empty, loading, and failure states.
+- Add the OpenAI API key as a protected production secret.
+- Test real voice transcription without making transcription a condition of saving audio.
+- Run the first GPT-5.6 analysis against a small Room and inspect its evidence quality.
 
-### July 18 — Live AI proof point
+### July 17 — Dynamic Living Threads
 
-- Connect GPT-5.6 through a server-side API route.
-- Analyze image + language context into structured fragment metadata.
-- Make Living Threads and Give me a word respond to the current Room.
+- Connect the prepared analysis response to the Room interface.
+- Add explicit **Discover threads**, loading, empty, and failure states.
+- Preserve AI results so reopening or moving a fragment does not spend API budget again.
+
+### July 18 — Retrieval and evaluation
+
+- Tune the evidence prompt with the Reflection Study and one contrasting Room.
+- Make **Give me a word** retrieve from the selected generated Thread.
+- Add user feedback and ensure rejected interpretations remain visibly non-authoritative.
 
 ### July 19 — Golden path and visual polish
 
