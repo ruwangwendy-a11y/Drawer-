@@ -507,7 +507,7 @@ export default function Home() {
       top: `${from.y}px`,
       width: `${distance}px`,
       transform: `rotate(${Math.atan2(dy, dx)}rad)`,
-      opacity: hidden || moving || distance > 560 ? 0 : Math.max(.18, 1 - distance / 760),
+      opacity: hidden || moving ? 0 : Math.max(.26, .78 - distance / 2600),
     };
   }
 
@@ -636,7 +636,7 @@ export default function Home() {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    const connectorOpacity = distance > 980 ? 0 : Math.max(.2, .58 - distance / 2600);
+    const connectorOpacity = Math.max(.3, .72 - distance / 3200);
     return {
       left: `${from.x}px`,
       top: `${from.y}px`,
@@ -669,19 +669,61 @@ export default function Home() {
   }
 
   function tidyRoom() {
-    const roomItemIds = new Set([
-      ...(currentRoom.isSample ? fragments.map((item) => item.id) : []),
-      ...(currentRoom.isSample ? memoryItems.map((_, index) => `memory-${index}`) : []),
-      ...roomImages.map((item) => item.id),
-      ...roomTexts.map((item) => item.id),
-      ...roomAudios.map((item) => item.id),
-      ...currentAiThreads.map((item) => `ai-thread-${item.id}`),
-    ]);
-    setPositions((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !roomItemIds.has(id))));
-    setScales((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !roomItemIds.has(id))));
+    const stage = roomCanvasRef.current?.querySelector<HTMLElement>(".room-stage");
+    if (!stage) return;
+    const elements = Array.from(stage.querySelectorAll<HTMLElement>("[data-canvas-id]"));
+    const placed: Array<{ x: number; y: number; width: number; height: number }> = [];
+    const nextPositions = { ...positions };
+    const overlaps = (candidate: { x: number; y: number; width: number; height: number }) => placed.some((item) =>
+      candidate.x < item.x + item.width + 28
+      && candidate.x + candidate.width + 28 > item.x
+      && candidate.y < item.y + item.height + 28
+      && candidate.y + candidate.height + 28 > item.y,
+    );
+
+    elements
+      .map((element) => {
+        const id = element.dataset.canvasId ?? "";
+        const offset = positions[id] ?? { x: 0, y: 0 };
+        const scale = scales[id] ?? 1;
+        return {
+          id,
+          baseX: element.offsetLeft,
+          baseY: element.offsetTop,
+          x: element.offsetLeft + offset.x,
+          y: element.offsetTop + offset.y,
+          width: element.offsetWidth * scale,
+          height: element.offsetHeight * scale,
+        };
+      })
+      .sort((a, b) => a.y - b.y || a.x - b.x)
+      .forEach((item) => {
+        const original = { x: item.x, y: item.y };
+        let candidate = { x: item.x, y: item.y, width: item.width, height: item.height };
+        if (overlaps(candidate)) {
+          let found = false;
+          for (let radius = 55; radius <= 1500 && !found; radius += 55) {
+            for (let step = 0; step < 20; step += 1) {
+              const angle = (Math.PI * 2 * step) / 20;
+              const x = Math.max(45, Math.min(ROOM_WIDTH - item.width - 45, original.x + Math.cos(angle) * radius));
+              const y = Math.max(70, Math.min(ROOM_HEIGHT - item.height - 70, original.y + Math.sin(angle) * radius));
+              const attempt = { x, y, width: item.width, height: item.height };
+              if (!overlaps(attempt)) {
+                candidate = attempt;
+                found = true;
+                break;
+              }
+            }
+          }
+        }
+        placed.push(candidate);
+        nextPositions[item.id] = { x: candidate.x - item.baseX, y: candidate.y - item.baseY };
+      });
+
+    setPositions(nextPositions);
     setSelectedId(null);
     closeThreadFocus();
-    setRelationSignal("Tidied gently. Nothing was removed—your fragments simply returned to a calmer arrangement.");
+    setRelationSignal("Tidied gently. Only overlapping fragments moved; nothing was removed.");
     window.setTimeout(() => setRelationSignal(null), 3200);
   }
 
@@ -1081,6 +1123,7 @@ export default function Home() {
                 {currentRoom.isSample && fragments.filter((fragment) => !hiddenIds.includes(fragment.id)).map((fragment) => (
                 <figure
                   key={fragment.id}
+                  data-canvas-id={fragment.id}
                   className={`${fragment.className}${focusedFragment === fragment.id ? " is-focused" : ""}${focusedFragment && focusedFragment !== fragment.id ? " is-muted" : ""}${aiFocusClass(fragment.id)}`}
                   style={{ transform: itemTransform(fragment.id) }}
                   onPointerDown={(event) => startMove(event, fragment.id)}
@@ -1095,6 +1138,7 @@ export default function Home() {
                 {roomImages.filter((image) => !hiddenIds.includes(image.id)).map((image, index) => (
                 <figure
                   key={image.id}
+                  data-canvas-id={image.id}
                   className={`fragment fragment--captured${aiFocusClass(image.id)}`}
                   style={{
                     left: `${210 + (index % 4) * 330}px`,
@@ -1119,6 +1163,7 @@ export default function Home() {
                   return (
                     <button
                       key={id}
+                      data-canvas-id={id}
                       className={`memory-fragment memory-fragment--new${aiFocusClass(id)}`}
                       style={{
                         left: `${350 + (index % 3) * 300}px`,
@@ -1139,6 +1184,7 @@ export default function Home() {
                 {roomAudios.filter((audio) => !hiddenIds.includes(audio.id)).map((audio, index) => (
                   <article
                     key={audio.id}
+                    data-canvas-id={audio.id}
                     className={`audio-fragment${aiFocusClass(audio.id)}`}
                     style={{
                       left: `${760 + (index % 3) * 310}px`,
@@ -1163,6 +1209,7 @@ export default function Home() {
                   return (
                     <button
                       key={id}
+                      data-canvas-id={id}
                       className={`memory-fragment${focusedFragment === note.target ? " is-active" : ""}${aiFocusClass(id)}`}
                       style={{
                         left: `${memoryHomes[index].x - 115}px`,
