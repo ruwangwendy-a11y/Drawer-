@@ -566,12 +566,11 @@ export default function Home() {
   }
 
   function threadCardHome(threadPoint: Point): Point {
-    const canvas = roomCanvasRef.current;
-    const visibleLeft = canvas ? canvas.scrollLeft / zoom : 0;
-    const visibleRight = canvas ? (canvas.scrollLeft + canvas.clientWidth) / zoom : ROOM_WIDTH;
-    const fitsRight = threadPoint.x + 760 <= visibleRight;
-    const fitsLeft = threadPoint.x - 510 >= visibleLeft;
-    const preferredX = fitsRight ? threadPoint.x + 270 : fitsLeft ? threadPoint.x - 500 : threadPoint.x + 270;
+    // Keep the explanation physically attached to its Thread. Basing this on
+    // the pre-focus viewport made distant Threads move into view while their
+    // cards stayed behind, so their feedback controls appeared not to work.
+    const fitsRight = threadPoint.x + 270 + 470 <= ROOM_WIDTH - 30;
+    const preferredX = fitsRight ? threadPoint.x + 270 : threadPoint.x - 500;
     return {
       x: Math.max(30, Math.min(ROOM_WIDTH - 500, preferredX)),
       y: Math.max(40, Math.min(ROOM_HEIGHT - 520, threadPoint.y - 45)),
