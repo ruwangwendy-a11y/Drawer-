@@ -40,7 +40,10 @@ export async function POST(request: Request) {
   if (!env.OPENAI_API_KEY) return Response.json({ error: "AI is not configured yet" }, { status: 503 });
 
   const material = await request.json<RoomMaterial>();
-  const images = (material.images ?? []).slice(0, 12);
+  // A Room can contain a full working set. The previous 12-image cap meant
+  // later additions—often the most important new material—never reached the
+  // analysis at all.
+  const images = (material.images ?? []).slice(0, 24);
   const texts = (material.texts ?? []).slice(0, 30);
   const audios = (material.audios ?? []).slice(0, 20);
   if (images.length + texts.length + audios.length < 2) {

@@ -20,7 +20,7 @@ type AiThread = {
   feedback?: "accepted" | "rejected";
 };
 type RejectedInsight = { title: string; summary: string };
-const ANALYSIS_VERSION = 2;
+const ANALYSIS_VERSION = 3;
 
 const fragmentHomes: Record<string, Point> = {
   corridor: { x: 278, y: 280 },
@@ -589,12 +589,13 @@ export default function Home() {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
+    const connectorOpacity = distance > 980 ? 0 : Math.max(.2, .58 - distance / 2600);
     return {
       left: `${from.x}px`,
       top: `${from.y}px`,
       width: `${distance}px`,
       transform: `rotate(${Math.atan2(dy, dx)}rad)`,
-      opacity: draggingId === threadId || draggingId === targetId ? 0 : .72,
+      opacity: draggingId === threadId || draggingId === targetId ? 0 : connectorOpacity,
     };
   }
 
