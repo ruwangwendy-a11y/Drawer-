@@ -503,7 +503,6 @@ export default function Home() {
     if (!activeAiThreadId) viewportBeforeThread.current = { left: canvas.scrollLeft, top: canvas.scrollTop };
     setActiveAiThreadId(thread.id);
     const points = thread.fragmentIds.map(sourceHome).filter((point): point is Point => Boolean(point));
-    if (!points.length) return;
     const threadIndex = Math.max(0, visibleAiThreads.findIndex((item) => item.id === thread.id));
     const actualThread = actualThreadHome(thread, threadIndex);
     const card = threadCardHome(actualThread);
@@ -567,8 +566,14 @@ export default function Home() {
   }
 
   function threadCardHome(threadPoint: Point): Point {
+    const canvas = roomCanvasRef.current;
+    const visibleLeft = canvas ? canvas.scrollLeft / zoom : 0;
+    const visibleRight = canvas ? (canvas.scrollLeft + canvas.clientWidth) / zoom : ROOM_WIDTH;
+    const fitsRight = threadPoint.x + 760 <= visibleRight;
+    const fitsLeft = threadPoint.x - 510 >= visibleLeft;
+    const preferredX = fitsRight ? threadPoint.x + 270 : fitsLeft ? threadPoint.x - 500 : threadPoint.x + 270;
     return {
-      x: Math.max(30, Math.min(ROOM_WIDTH - 500, threadPoint.x + 750 < ROOM_WIDTH ? threadPoint.x + 270 : threadPoint.x - 500)),
+      x: Math.max(30, Math.min(ROOM_WIDTH - 500, preferredX)),
       y: Math.max(40, Math.min(ROOM_HEIGHT - 520, threadPoint.y - 45)),
     };
   }
@@ -856,9 +861,16 @@ export default function Home() {
       {view === "drawer" && (
         <section className={`drawer-view${saved ? " is-closing" : ""}`} aria-labelledby="drawer-title">
           <div className="drawer-heading">
-            <p className="eyebrow">Quick capture</p>
-            <h1 id="drawer-title">Put something away.</h1>
-            <p>Catch it before it becomes clear. Drawer keeps the image, sound, and thought together—then brings them back when a connection begins to form.</p>
+            <p className="eyebrow">Your creative memory</p>
+            <h1 id="drawer-title">When an idea appears,<br /><em>give it somewhere to stay.</em></h1>
+            <p className="memory-intro">Inspiration often arrives before it can explain itself. Leave the image, sound, or unfinished thought here. You can understand it later.</p>
+            <div className="memory-language" aria-label="How creative memory grows">
+              {['Memory', 'Room', 'Fragments', 'Context', 'Thread', 'Spark'].map((word, index) => (
+                <span key={word}><i>{String(index + 1).padStart(2, '0')}</i>{word}</span>
+              ))}
+            </div>
+            <p className="memory-growth"><strong>Every day, the memory graph grows.</strong> Living Threads become more personal as Drawer learns what you keep, connect, and return to.</p>
+            {(pendingImages.length > 0 || recordedAudio || draft.trim()) && <p className="capture-live-status">A new part of your memory is ready to enter the Room.</p>}
           </div>
           <div className="drawer-shell">
             <div className="drawer-content">
