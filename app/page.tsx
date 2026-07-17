@@ -1173,7 +1173,7 @@ export default function Home() {
                 ))}
 
                 {activeAiThread && (
-                  <aside className="thread-card thread-card--generated" style={activeThreadCardPosition ? { left: `${activeThreadCardPosition.left}px`, top: `${activeThreadCardPosition.top}px` } : undefined}>
+                  <aside className="thread-card thread-card--generated" style={activeThreadCardPosition ? { left: `${activeThreadCardPosition.x}px`, top: `${activeThreadCardPosition.y}px` } : undefined}>
                     <div className="thread-card-heading">
                       <p>Living Thread · GPT-5.6</p>
                       <div className="thread-card-nav" aria-label="Living Thread navigation">
