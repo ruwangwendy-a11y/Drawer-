@@ -5,6 +5,7 @@ type RoomMaterial = {
   images?: Array<{ id: string; src: string; date?: string }>;
   texts?: Array<{ id: string; text: string; date?: string }>;
   audios?: Array<{ id: string; transcript?: string; date?: string }>;
+  rejectedThreads?: Array<{ title: string; summary: string }>;
 };
 
 const threadSchema = {
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
   const origin = new URL(request.url).origin;
   const content: Array<Record<string, unknown>> = [{
     type: "input_text",
-    text: JSON.stringify({ roomName: material.roomName ?? "Untitled room", images, texts, audios }),
+    text: JSON.stringify({ roomName: material.roomName ?? "Untitled room", images, texts, audios, rejectedThreads: material.rejectedThreads ?? [] }),
   }];
   for (const image of images) {
     const imageUrl = new URL(image.src, origin).toString();
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
     body: JSON.stringify({
       model: "gpt-5.6-luna",
       reasoning: { effort: "low" },
-      instructions: "You are Drawer, a restrained creative-memory assistant. Find only recurring patterns supported by at least two supplied fragments. Treat interpretations as hypotheses, never diagnoses or authoritative claims. Cite concrete visual, linguistic, and temporal evidence. Use the supplied fragment ids exactly. Write concise, evocative English. If no defensible pattern exists, return an empty threads array.",
+      instructions: "You are Drawer, a restrained creative-memory assistant. Find only recurring patterns supported by at least two supplied fragments. Treat interpretations as hypotheses, never diagnoses or authoritative claims. Cite concrete visual, linguistic, and temporal evidence. Use the supplied fragment ids exactly. Do not repeat or lightly rephrase any rejectedThreads; look for a genuinely different connection. Write concise, evocative English. If no defensible pattern exists, return an empty threads array.",
       input: [{ role: "user", content }],
       text: { format: { type: "json_schema", name: "drawer_living_threads", strict: true, schema: threadSchema } },
       max_output_tokens: 1800,

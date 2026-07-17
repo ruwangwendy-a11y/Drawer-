@@ -17,7 +17,9 @@ type AiThread = {
   timeEvidence: string;
   fragmentIds: string[];
   spark: string;
+  feedback?: "accepted" | "rejected";
 };
+type RejectedInsight = { title: string; summary: string };
 
 const fragmentHomes: Record<string, Point> = {
   corridor: { x: 278, y: 280 },
@@ -179,6 +181,9 @@ export default function Home() {
   const [activeAiThreadId, setActiveAiThreadId] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
+  const [analysisSnapshots, setAnalysisSnapshots] = useState<Record<string, string>>({});
+  const [rejectedInsights, setRejectedInsights] = useState<Record<string, RejectedInsight[]>>({});
+  const [lastRejected, setLastRejected] = useState<{ roomId: string; threadId: string; insight: RejectedInsight; previousSnapshot: string } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const dragState = useRef<{ id: string; startX: number; startY: number; origin: Point; target: HTMLElement } | null>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
@@ -228,6 +233,8 @@ export default function Home() {
           setCapturedTexts(state.capturedTexts ?? []);
           setCapturedAudios(state.capturedAudios ?? []);
           setAiThreads(state.aiThreads ?? {});
+          setAnalysisSnapshots(state.analysisSnapshots ?? {});
+          setRejectedInsights(state.rejectedInsights ?? {});
           setMemoryItems(state.memoryItems ?? memoryNotes);
           setPositions(state.positions ?? {});
           setScales(state.scales ?? {});
@@ -246,11 +253,11 @@ export default function Home() {
       fetch("/api/state", {
         method: "PUT",
         headers: { "content-type": "application/json", "x-drawer-device": deviceId },
-        body: JSON.stringify({ capturedImages, capturedTexts, capturedAudios, aiThreads, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId }),
+        body: JSON.stringify({ capturedImages, capturedTexts, capturedAudios, aiThreads, analysisSnapshots, rejectedInsights, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId }),
       }).catch(() => undefined);
     }, 650);
     return () => window.clearTimeout(timer);
-  }, [hydrated, deviceId, capturedImages, capturedTexts, capturedAudios, aiThreads, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId]);
+  }, [hydrated, deviceId, capturedImages, capturedTexts, capturedAudios, aiThreads, analysisSnapshots, rejectedInsights, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId]);
 
   useEffect(() => () => {
     if (recordingTimer.current) window.clearInterval(recordingTimer.current);
@@ -573,12 +580,14 @@ export default function Home() {
             ...roomTexts.filter((item) => !hiddenIds.includes(item.id)).map(({ id, text, date }) => ({ id, text, date })),
           ],
           audios: roomAudios.filter((item) => !hiddenIds.includes(item.id) && item.transcript).map(({ id, transcript, date }) => ({ id, transcript, date })),
+          rejectedThreads: rejectedInsights[currentRoomId] ?? [],
         }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Drawer could not find a thread yet");
       const threads = (result.threads ?? []) as AiThread[];
       setAiThreads((current) => ({ ...current, [currentRoomId]: threads }));
+      setAnalysisSnapshots((current) => ({ ...current, [currentRoomId]: currentRoomSignature }));
       if (threads[0]) setActiveAiThreadId(threads[0].id);
       else setAnalysisError("No repeated thread was strong enough yet. Add another fragment and return later.");
     } catch (error) {
@@ -588,11 +597,83 @@ export default function Home() {
     }
   }
 
+  function keepThread(threadId: string) {
+    setAiThreads((current) => ({
+      ...current,
+      [currentRoomId]: (current[currentRoomId] ?? []).map((thread) => thread.id === threadId ? { ...thread, feedback: "accepted" } : thread),
+    }));
+    setRelationSignal("Kept as part of your creative memory.");
+    window.setTimeout(() => setRelationSignal(null), 2600);
+  }
+
+  function rejectThread(thread: AiThread) {
+    const insight = { title: thread.title, summary: thread.summary };
+    setAiThreads((current) => ({
+      ...current,
+      [currentRoomId]: (current[currentRoomId] ?? []).map((item) => item.id === thread.id ? { ...item, feedback: "rejected" } : item),
+    }));
+    setRejectedInsights((current) => ({ ...current, [currentRoomId]: [...(current[currentRoomId] ?? []), insight] }));
+    setLastRejected({ roomId: currentRoomId, threadId: thread.id, insight, previousSnapshot: analysisSnapshots[currentRoomId] ?? "" });
+    setAnalysisSnapshots((current) => ({ ...current, [currentRoomId]: "" }));
+    setActiveAiThreadId(null);
+  }
+
+  function undoReject() {
+    if (!lastRejected) return;
+    const { roomId, threadId, insight, previousSnapshot } = lastRejected;
+    setAiThreads((current) => ({
+      ...current,
+      [roomId]: (current[roomId] ?? []).map((item) => item.id === threadId ? { ...item, feedback: undefined } : item),
+    }));
+    setRejectedInsights((current) => {
+      const roomItems = [...(current[roomId] ?? [])];
+      const index = roomItems.findLastIndex((item) => item.title === insight.title && item.summary === insight.summary);
+      if (index >= 0) roomItems.splice(index, 1);
+      return { ...current, [roomId]: roomItems };
+    });
+    setAnalysisSnapshots((current) => ({ ...current, [roomId]: previousSnapshot }));
+    setActiveAiThreadId(threadId);
+    setLastRejected(null);
+  }
+
+  function openSpark() {
+    const candidate = activeAiThread ?? visibleAiThreads.find((thread) => thread.feedback === "accepted") ?? visibleAiThreads[0];
+    if (candidate) {
+      setActiveAiThreadId(candidate.id);
+      setSparkOpen(true);
+      return;
+    }
+    if (currentRoom.isSample && !analysisSnapshots[currentRoomId]) {
+      setSparkOpen(true);
+      return;
+    }
+    setAnalysisError("Discover a Living Thread before asking Drawer for a way back in.");
+  }
+
   const roomImages = capturedImages.filter((image) => (image.roomId ?? "sample") === currentRoomId);
   const roomTexts = capturedTexts.filter((text) => text.roomId === currentRoomId);
   const roomAudios = capturedAudios.filter((audio) => audio.roomId === currentRoomId);
   const currentAiThreads = aiThreads[currentRoomId] ?? [];
-  const activeAiThread = currentAiThreads.find((thread) => thread.id === activeAiThreadId) ?? null;
+  const visibleAiThreads = currentAiThreads.filter((thread) => thread.feedback !== "rejected");
+  const activeAiThread = visibleAiThreads.find((thread) => thread.id === activeAiThreadId) ?? null;
+  const currentSourceIds = new Set([
+    ...(currentRoom.isSample ? fragments.map((item) => item.id) : []),
+    ...(currentRoom.isSample ? memoryItems.map((_, index) => `memory-${index}`) : []),
+    ...roomImages.map((item) => item.id),
+    ...roomTexts.map((item) => item.id),
+    ...roomAudios.map((item) => item.id),
+  ]);
+  const currentRoomSignature = JSON.stringify({
+    sampleImages: currentRoom.isSample ? fragments.filter((item) => !hiddenIds.includes(item.id)).map((item) => item.id) : [],
+    sampleWords: currentRoom.isSample ? memoryItems.map((item) => item.text) : [],
+    images: roomImages.filter((item) => !hiddenIds.includes(item.id)).map((item) => [item.id, item.src]),
+    texts: roomTexts.filter((item) => !hiddenIds.includes(item.id)).map((item) => [item.id, item.text]),
+    audios: roomAudios.filter((item) => !hiddenIds.includes(item.id)).map((item) => [item.id, item.transcript ?? ""]),
+    positions: Object.fromEntries(Object.entries(positions).filter(([id]) => currentSourceIds.has(id))),
+  });
+  const hasAnalyzedRoom = Boolean(analysisSnapshots[currentRoomId]);
+  const roomChangedSinceAnalysis = hasAnalyzedRoom && analysisSnapshots[currentRoomId] !== currentRoomSignature;
+  const shouldSeekDifferentConnection = !hasAnalyzedRoom && (rejectedInsights[currentRoomId]?.length ?? 0) > 0;
   const visibleSampleFragments = currentRoom.isSample
     ? fragments.filter((fragment) => !hiddenIds.includes(fragment.id)).length
       + memoryItems.filter((_, index) => !hiddenIds.includes(`memory-${index}`)).length
@@ -743,9 +824,9 @@ export default function Home() {
                   <button onClick={() => setSelectedId(null)}>Done</button>
                 </div>
               )}
-              <button className="tool-button" onClick={() => setSparkOpen(true)}><span aria-hidden="true">✦</span> Give me a word</button>
-              <button className="tool-button tool-button--discover" onClick={discoverThreads} disabled={analyzing}>
-                <span aria-hidden="true">◎</span> {analyzing ? "Noticing…" : currentAiThreads.length ? "Refresh threads" : "Discover threads"}
+              <button className="tool-button" onClick={openSpark}><span aria-hidden="true">✦</span> Give me a word</button>
+              <button className="tool-button tool-button--discover" onClick={discoverThreads} disabled={analyzing || (hasAnalyzedRoom && !roomChangedSinceAnalysis)}>
+                <span aria-hidden="true">◎</span> {analyzing ? "Noticing…" : shouldSeekDifferentConnection ? "Look for a different connection" : roomChangedSinceAnalysis ? "Room changed · Look again" : hasAnalyzedRoom ? "Threads are up to date" : "Discover threads"}
               </button>
               {activeAiThread && (
                 <button className="tool-button tool-button--show-all" onClick={() => setActiveAiThreadId(null)}>
@@ -913,13 +994,13 @@ export default function Home() {
                 </aside>
                 )}
 
-                {activeAiThread && currentAiThreads.map((thread, threadIndex) => thread.id === activeAiThread.id
+                {activeAiThread && visibleAiThreads.map((thread, threadIndex) => thread.id === activeAiThread.id
                   ? thread.fragmentIds.map((targetId) => (
                     <span key={`ai-line-${thread.id}-${targetId}`} className="ai-thread-connector" style={aiConnectorStyle(thread, threadIndex, targetId)} aria-hidden="true" />
                   ))
                   : null)}
 
-                {currentAiThreads.map((thread, index) => (
+                {visibleAiThreads.map((thread, index) => (
                   <button
                     key={`ai-${thread.id}`}
                     className={`living-thread living-thread--generated${activeAiThreadId === thread.id ? " is-open" : ""}${activeAiThread && activeAiThreadId !== thread.id ? " is-ai-muted" : ""}`}
@@ -950,15 +1031,16 @@ export default function Home() {
                     </dl>
                     <div className="thread-feedback">
                       <span>A hypothesis, not a conclusion.</span>
-                      <button onClick={() => setRelationSignal("This thread feels true. Drawer will keep it close.")}>It does</button>
-                      <button onClick={() => { setAiThreads((current) => ({ ...current, [currentRoomId]: currentAiThreads.filter((item) => item.id !== activeAiThread.id) })); setActiveAiThreadId(null); }}>Not really</button>
+                      <button className={activeAiThread.feedback === "accepted" ? "is-selected" : ""} onClick={() => keepThread(activeAiThread.id)}>{activeAiThread.feedback === "accepted" ? "Kept ✓" : "It does"}</button>
+                      <button onClick={() => rejectThread(activeAiThread)}>Not really</button>
                     </div>
-                    <button className="return-button" onClick={() => setSparkOpen(true)}>Return to this thread <span>→</span></button>
+                    <button className="return-button" onClick={openSpark}>Return to this thread <span>→</span></button>
                   </aside>
                 )}
               </div>
               </div>
               {analysisError && <div className="analysis-toast" role="status"><span>{analysisError}</span><button onClick={() => setAnalysisError("")} aria-label="Dismiss">×</button></div>}
+              {lastRejected && <div className="reject-toast" role="status"><span>Thread hidden. Your fragments are untouched.</span><button onClick={undoReject}>Undo</button><button onClick={() => setLastRejected(null)} aria-label="Dismiss">×</button></div>}
               {relationSignal && <div className="relation-toast">{relationSignal}</div>}
             </div>
           </div>
