@@ -491,12 +491,27 @@ export default function Home() {
     window.setTimeout(() => setRelationSignal(null), 3200);
   }
 
+  function canvasItemCenter(id: string): Point | null {
+    const stage = roomCanvasRef.current?.querySelector<HTMLElement>(".room-stage");
+    const element = stage
+      ? Array.from(stage.querySelectorAll<HTMLElement>("[data-canvas-id]")).find((item) => item.dataset.canvasId === id)
+      : null;
+    if (!element) return null;
+    const offset = positions[id] ?? { x: 0, y: 0 };
+    const scale = scales[id] ?? 1;
+    return {
+      x: element.offsetLeft + offset.x + element.offsetWidth * scale / 2,
+      y: element.offsetTop + offset.y + element.offsetHeight * scale / 2,
+    };
+  }
+
   function connectorStyle(noteIndex: number, targetId: string) {
-    const noteOffset = positions[`memory-${noteIndex}`] ?? { x: 0, y: 0 };
+    const memoryId = `memory-${noteIndex}`;
+    const noteOffset = positions[memoryId] ?? { x: 0, y: 0 };
     const targetOffset = positions[targetId] ?? { x: 0, y: 0 };
-    const from = { x: memoryHomes[noteIndex].x + noteOffset.x, y: memoryHomes[noteIndex].y + noteOffset.y };
+    const from = canvasItemCenter(memoryId) ?? { x: memoryHomes[noteIndex].x + noteOffset.x, y: memoryHomes[noteIndex].y + noteOffset.y };
     const targetHome = fragmentHomes[targetId];
-    const to = { x: targetHome.x + targetOffset.x, y: targetHome.y + targetOffset.y };
+    const to = canvasItemCenter(targetId) ?? { x: targetHome.x + targetOffset.x, y: targetHome.y + targetOffset.y };
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -507,11 +522,13 @@ export default function Home() {
       top: `${from.y}px`,
       width: `${distance}px`,
       transform: `rotate(${Math.atan2(dy, dx)}rad)`,
-      opacity: hidden || moving ? 0 : Math.max(.26, .78 - distance / 2600),
+      opacity: hidden || moving ? 0 : focusedFragment ? (focusedFragment === targetId ? .78 : 0) : .13,
     };
   }
 
   function visualHome(targetId: string): Point | null {
+    const exactCenter = canvasItemCenter(targetId);
+    if (exactCenter) return exactCenter;
     if (fragmentHomes[targetId]) return fragmentHomes[targetId];
     const imageIndex = roomImages.findIndex((item) => item.id === targetId);
     if (imageIndex >= 0) {
@@ -671,59 +688,46 @@ export default function Home() {
   function tidyRoom() {
     const stage = roomCanvasRef.current?.querySelector<HTMLElement>(".room-stage");
     if (!stage) return;
-    const elements = Array.from(stage.querySelectorAll<HTMLElement>("[data-canvas-id]"));
-    const placed: Array<{ x: number; y: number; width: number; height: number }> = [];
+    const allElements = Array.from(stage.querySelectorAll<HTMLElement>("[data-canvas-id]"));
+    const elementById = new Map(allElements.map((element) => [element.dataset.canvasId ?? "", element]));
+    const chronologicalIds = currentRoom.isSample
+      ? fragments.flatMap((fragment) => [
+        fragment.id,
+        ...memoryItems.flatMap((note, index) => note.target === fragment.id ? [`memory-${index}`] : []),
+      ])
+      : [];
+    const roomIds = [...roomImages.map((item) => item.id), ...roomTexts.map((item) => item.id), ...roomAudios.map((item) => item.id)];
+    const orderedIds = [...chronologicalIds, ...roomIds, ...allElements.map((element) => element.dataset.canvasId ?? "")]
+      .filter((id, index, ids) => id && ids.indexOf(id) === index && elementById.has(id));
     const nextPositions = { ...positions };
-    const overlaps = (candidate: { x: number; y: number; width: number; height: number }) => placed.some((item) =>
-      candidate.x < item.x + item.width + 28
-      && candidate.x + candidate.width + 28 > item.x
-      && candidate.y < item.y + item.height + 28
-      && candidate.y + candidate.height + 28 > item.y,
-    );
-
-    elements
-      .map((element) => {
-        const id = element.dataset.canvasId ?? "";
-        const offset = positions[id] ?? { x: 0, y: 0 };
-        const scale = scales[id] ?? 1;
-        return {
-          id,
-          baseX: element.offsetLeft,
-          baseY: element.offsetTop,
-          x: element.offsetLeft + offset.x,
-          y: element.offsetTop + offset.y,
-          width: element.offsetWidth * scale,
-          height: element.offsetHeight * scale,
-        };
-      })
-      .sort((a, b) => a.y - b.y || a.x - b.x)
-      .forEach((item) => {
-        const original = { x: item.x, y: item.y };
-        let candidate = { x: item.x, y: item.y, width: item.width, height: item.height };
-        if (overlaps(candidate)) {
-          let found = false;
-          for (let radius = 55; radius <= 1500 && !found; radius += 55) {
-            for (let step = 0; step < 20; step += 1) {
-              const angle = (Math.PI * 2 * step) / 20;
-              const x = Math.max(45, Math.min(ROOM_WIDTH - item.width - 45, original.x + Math.cos(angle) * radius));
-              const y = Math.max(70, Math.min(ROOM_HEIGHT - item.height - 70, original.y + Math.sin(angle) * radius));
-              const attempt = { x, y, width: item.width, height: item.height };
-              if (!overlaps(attempt)) {
-                candidate = attempt;
-                found = true;
-                break;
-              }
-            }
-          }
-        }
-        placed.push(candidate);
-        nextPositions[item.id] = { x: candidate.x - item.baseX, y: candidate.y - item.baseY };
-      });
+    let cursorX = 90;
+    let cursorY = 130;
+    let rowHeight = 0;
+    let rowIndex = 0;
+    orderedIds.forEach((id, index) => {
+      const element = elementById.get(id);
+      if (!element) return;
+      const scale = scales[id] ?? 1;
+      const width = element.offsetWidth * scale;
+      const height = element.offsetHeight * scale;
+      if (cursorX + width > ROOM_WIDTH - 90) {
+        cursorX = 90 + (rowIndex % 2) * 38;
+        cursorY += rowHeight + 92;
+        rowHeight = 0;
+        rowIndex += 1;
+      }
+      const stagger = (index % 3) * 22;
+      const x = cursorX;
+      const y = Math.min(ROOM_HEIGHT - height - 70, cursorY + stagger);
+      nextPositions[id] = { x: x - element.offsetLeft, y: y - element.offsetTop };
+      cursorX += width + 76;
+      rowHeight = Math.max(rowHeight, height + stagger);
+    });
 
     setPositions(nextPositions);
     setSelectedId(null);
     closeThreadFocus();
-    setRelationSignal("Tidied gently. Only overlapping fragments moved; nothing was removed.");
+    setRelationSignal("Tidied into a calm, chronological flow. Nothing was removed.");
     window.setTimeout(() => setRelationSignal(null), 3200);
   }
 
