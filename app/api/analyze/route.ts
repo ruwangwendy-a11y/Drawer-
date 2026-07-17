@@ -16,7 +16,7 @@ const threadSchema = {
     threads: {
       type: "array",
       minItems: 0,
-      maxItems: 3,
+      maxItems: 4,
       items: {
         type: "object",
         additionalProperties: false,
@@ -63,10 +63,10 @@ export async function POST(request: Request) {
     body: JSON.stringify({
       model: "gpt-5.6-luna",
       reasoning: { effort: "low" },
-      instructions: "You are Drawer, a restrained creative-memory assistant. Find only recurring patterns supported by at least two supplied fragments. Treat interpretations as hypotheses, never diagnoses or authoritative claims. Cite concrete visual, linguistic, and temporal evidence. Use the supplied fragment ids exactly. Do not repeat or lightly rephrase any rejectedThreads; look for a genuinely different connection. Write concise, evocative English. If no defensible pattern exists, return an empty threads array.",
+      instructions: "You are Drawer, a restrained creative-memory assistant. Return between zero and four Living Threads based only on evidential strength—never aim for a fixed count and never fill a quota. Find only recurring patterns supported by at least two supplied fragments. Each Thread must be meaningfully distinct; merge overlapping interpretations and prefer fewer strong Threads over several variations of the same idea. Treat interpretations as hypotheses, never diagnoses or authoritative claims. Cite concrete visual, linguistic, and temporal evidence. Use the supplied fragment ids exactly. Do not repeat or lightly rephrase any rejectedThreads; look for a genuinely different connection. Write concise, evocative English. If no defensible pattern exists, return an empty threads array.",
       input: [{ role: "user", content }],
       text: { format: { type: "json_schema", name: "drawer_living_threads", strict: true, schema: threadSchema } },
-      max_output_tokens: 1800,
+      max_output_tokens: 2400,
     }),
   });
 

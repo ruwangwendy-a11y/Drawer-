@@ -20,6 +20,7 @@ type AiThread = {
   feedback?: "accepted" | "rejected";
 };
 type RejectedInsight = { title: string; summary: string };
+const ANALYSIS_VERSION = 2;
 
 const fragmentHomes: Record<string, Point> = {
   corridor: { x: 278, y: 280 },
@@ -526,6 +527,12 @@ export default function Home() {
     viewportBeforeThread.current = null;
   }
 
+  function stepThread(direction: -1 | 1) {
+    if (!activeAiThread || visibleAiThreads.length < 2) return;
+    const nextIndex = (activeAiThreadIndex + direction + visibleAiThreads.length) % visibleAiThreads.length;
+    openThreadFocus(visibleAiThreads[nextIndex]);
+  }
+
   function threadHome(thread: AiThread, threadIndex: number): Point {
     const threadId = `ai-thread-${thread.id}`;
     const savedOffset = positions[threadId];
@@ -755,6 +762,7 @@ export default function Home() {
     ...roomAudios.map((item) => item.id),
   ]);
   const currentRoomSignature = JSON.stringify({
+    analysisVersion: ANALYSIS_VERSION,
     sampleImages: currentRoom.isSample ? fragments.filter((item) => !hiddenIds.includes(item.id)).map((item) => item.id) : [],
     sampleWords: currentRoom.isSample ? memoryItems.map((item) => item.text) : [],
     images: roomImages.filter((item) => !hiddenIds.includes(item.id)).map((item) => [item.id, item.src]),
@@ -763,6 +771,7 @@ export default function Home() {
     positions: Object.fromEntries(Object.entries(positions).filter(([id]) => currentSourceIds.has(id))),
   });
   const hasAnalyzedRoom = Boolean(analysisSnapshots[currentRoomId]);
+  const analysisNeedsUpgrade = hasAnalyzedRoom && !analysisSnapshots[currentRoomId].includes(`\"analysisVersion\":${ANALYSIS_VERSION}`);
   const roomChangedSinceAnalysis = hasAnalyzedRoom && analysisSnapshots[currentRoomId] !== currentRoomSignature;
   const shouldSeekDifferentConnection = !hasAnalyzedRoom && (rejectedInsights[currentRoomId]?.length ?? 0) > 0;
   const visibleSampleFragments = currentRoom.isSample
@@ -922,7 +931,7 @@ export default function Home() {
               )}
               <button className="tool-button" onClick={openSpark}><span aria-hidden="true">✦</span> Give me a word</button>
               <button className="tool-button tool-button--discover" onClick={discoverThreads} disabled={analyzing || (hasAnalyzedRoom && !roomChangedSinceAnalysis)}>
-                <span aria-hidden="true">◎</span> {analyzing ? "Noticing…" : shouldSeekDifferentConnection ? "Look for a different connection" : roomChangedSinceAnalysis ? "Room changed · Look again" : hasAnalyzedRoom ? "Threads are up to date" : "Discover threads"}
+                <span aria-hidden="true">◎</span> {analyzing ? "Noticing…" : shouldSeekDifferentConnection ? "Look for a different connection" : analysisNeedsUpgrade ? "New analysis available · Look again" : roomChangedSinceAnalysis ? "Room changed · Look again" : hasAnalyzedRoom ? "Threads are up to date" : "Discover threads"}
               </button>
               {activeAiThread && (
                 <button className="tool-button tool-button--show-all" onClick={closeThreadFocus}>
@@ -1133,7 +1142,12 @@ export default function Home() {
                   <aside className="thread-card thread-card--generated" style={activeThreadHome ? { left: `${Math.min(ROOM_WIDTH - 520, activeThreadHome.x + 20)}px`, top: `${Math.min(ROOM_HEIGHT - 520, activeThreadHome.y + 70)}px` } : undefined}>
                     <div className="thread-card-heading">
                       <p>Living Thread · GPT-5.6</p>
-                      <button onClick={closeThreadFocus} aria-label="Close thread">×</button>
+                      <div className="thread-card-nav" aria-label="Living Thread navigation">
+                        <button onClick={() => stepThread(-1)} disabled={visibleAiThreads.length < 2} aria-label="Previous thread">←</button>
+                        <span>{activeAiThreadIndex + 1} / {visibleAiThreads.length}</span>
+                        <button onClick={() => stepThread(1)} disabled={visibleAiThreads.length < 2} aria-label="Next thread">→</button>
+                        <button onClick={closeThreadFocus} aria-label="Close thread">×</button>
+                      </div>
                     </div>
                     <h2>{activeAiThread.title}</h2>
                     <p className="thread-summary">{activeAiThread.summary}</p>
