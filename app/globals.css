@@ -136,7 +136,18 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .tool-button--show-all:hover { background: #2b2c28; color: white; }
 .tool-button:disabled { opacity: .55; cursor: wait; transform: none; }
 .grid-icon { width: 10px; height: 10px; display: inline-block; opacity: .68; background-image: linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px); background-size: 5px 5px; }
-.room-layout { height: calc(100vh - 172px); min-height: 610px; display: block; border: 1px solid var(--line); background: rgba(255,255,255,.14); }
+.agent-workflow { min-height: 58px; margin: -2px 0 14px; padding: 10px 14px; border: 1px solid var(--soft-line); background: rgba(255,255,255,.24); display: grid; grid-template-columns: minmax(270px, 1fr) auto; align-items: center; gap: 24px; }
+.agent-workflow-copy > span { display: flex; align-items: center; gap: 7px; color: #456785; font-family: var(--font-geist-mono); font-size: 7px; letter-spacing: .1em; text-transform: uppercase; }
+.agent-workflow-copy i { width: 6px; height: 6px; border-radius: 50%; background: #456785; box-shadow: 0 0 0 4px rgba(69,103,133,.1); }
+.agent-workflow-copy p { margin: 5px 0 0; color: var(--muted); font-size: 9px; line-height: 1.4; }
+.agent-workflow ol { margin: 0; padding: 0; list-style: none; display: flex; align-items: center; }
+.agent-workflow li { min-width: 86px; padding: 7px 13px; border-left: 1px solid var(--soft-line); display: flex; align-items: center; gap: 7px; color: #96988f; font-size: 8px; transition: color .25s ease, background .25s ease; }
+.agent-workflow li b { color: #aaa; font-family: var(--font-geist-mono); font-size: 6px; font-weight: 500; }
+.agent-workflow li.is-active { color: #344f67; background: rgba(69,103,133,.07); }
+.agent-workflow li.is-active b { color: #456785; }
+.agent-workflow--understanding .agent-workflow-copy i, .agent-workflow--curating .agent-workflow-copy i { animation: agentPulse 1.2s infinite; }
+@keyframes agentPulse { 50% { opacity: .35; transform: scale(.72); } }
+.room-layout { height: calc(100vh - 244px); min-height: 550px; display: block; border: 1px solid var(--line); background: rgba(255,255,255,.14); }
 .room-canvas { position: relative; overflow: auto; min-width: 0; transition: background .4s ease; scrollbar-width: none; overscroll-behavior: contain; }
 .room-canvas::-webkit-scrollbar { display: none; }
 .room-canvas::after { content: ""; pointer-events: none; position: absolute; z-index: 30; inset: 0; box-shadow: inset 0 0 55px rgba(244,243,239,.7); }
@@ -300,6 +311,10 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
   .room-switcher select { max-width: 170px; font-size: 21px; }
   .header-selection-tools { order: 8; }
   .tool-button { padding: 8px 10px; font-size: 9px; }
+  .agent-workflow { grid-template-columns: 1fr; gap: 9px; }
+  .agent-workflow-copy p { max-width: 520px; }
+  .agent-workflow ol { overflow-x: auto; }
+  .agent-workflow li { min-width: 76px; padding: 6px 9px; }
   .room-layout { height: 620px; min-height: 0; }
   .room-canvas { height: 620px; }
   .thread-card { width: 340px; max-height: 560px; overflow: auto; }

@@ -4,6 +4,7 @@ import { ChangeEvent, DragEvent, PointerEvent as ReactPointerEvent, useEffect, u
 
 type View = "landing" | "drawer" | "room";
 type ThreadState = "idle" | "evidence" | "accepted" | "rejected";
+type AgentPhase = "memory" | "understanding" | "curating" | "calibrating" | "returning" | "ready";
 type CapturedImage = { id: string; src: string; name: string; note: string; date: string; width: number; height: number; roomId?: string };
 type CapturedText = { id: string; text: string; date: string; roomId: string };
 type CapturedAudio = { id: string; src: string; date: string; duration: number; roomId: string; transcript?: string };
@@ -230,6 +231,7 @@ export default function Home() {
   const [defaultRoomId, setDefaultRoomId] = useState("sample");
   const [captureRoomId, setCaptureRoomId] = useState("sample");
   const [curating, setCurating] = useState(false);
+  const [agentPhase, setAgentPhase] = useState<AgentPhase>("memory");
   const [renamingRoom, setRenamingRoom] = useState(false);
   const [roomNameDraft, setRoomNameDraft] = useState("");
   const [deviceId, setDeviceId] = useState("");
@@ -267,10 +269,15 @@ export default function Home() {
 
   useEffect(() => {
     if (!sparkOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setSparkOpen(false); };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") closeSpark(); };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [sparkOpen]);
+
+  function closeSpark() {
+    setSparkOpen(false);
+    setAgentPhase(currentAiThreads.length || currentRoom.isSample ? "ready" : "memory");
+  }
 
   useEffect(() => {
     if (!activeAiThreadId) return;
@@ -443,6 +450,7 @@ export default function Home() {
   async function keepFragment() {
     if (saving || recording || !deviceId) return;
     setSaving(true);
+    setAgentPhase("memory");
     setRecordingError("");
     try {
       const uploadedImages = await Promise.all(pendingImages.map(async (image) => {
@@ -589,6 +597,7 @@ export default function Home() {
     }
     if (!activeAiThreadId) viewportBeforeThread.current = { left: canvas.scrollLeft, top: canvas.scrollTop };
     setSelectedId(null);
+    setAgentPhase("calibrating");
     setActiveAiThreadId(thread.id);
     const threadIndex = Math.max(0, visibleAiThreads.findIndex((item) => item.id === thread.id));
     const actualThread = actualThreadHome(thread, threadIndex);
@@ -606,6 +615,7 @@ export default function Home() {
 
   function closeThreadFocus() {
     setActiveAiThreadId(null);
+    setAgentPhase(currentAiThreads.length ? "ready" : "memory");
     const canvas = roomCanvasRef.current;
     const previous = viewportBeforeThread.current;
     if (canvas && previous) {
@@ -798,6 +808,7 @@ export default function Home() {
   async function curateRoom() {
     if (curating || currentRoom.isSample || !roomImages.length) return;
     setCurating(true);
+    setAgentPhase("understanding");
     setSelectedId(null);
     setActiveAiThreadId(null);
     setShowGrid(false);
@@ -827,6 +838,7 @@ export default function Home() {
       // The stable gallery pass remains available if analysis is temporarily unavailable.
     }
 
+    setAgentPhase("curating");
     window.setTimeout(() => {
       const stage = roomCanvasRef.current?.querySelector<HTMLElement>(".room-stage");
       if (!stage) {
@@ -905,6 +917,7 @@ export default function Home() {
       setPositions((current) => ({ ...current, ...nextPositions }));
       setScales((current) => ({ ...current, ...nextScales }));
       setCurating(false);
+      setAgentPhase("ready");
       setRelationSignal(curationThreads.length
         ? `AI found ${groups.length} visual walls. Everything can still be moved.`
         : `Curated into ${groups.length} quiet walls. Everything can still be moved.`);
@@ -932,6 +945,7 @@ export default function Home() {
     setAnalyzing(true);
     setAnalysisError("");
     closeThreadFocus();
+    setAgentPhase("understanding");
     setThreadState("idle");
     try {
       const response = await fetch("/api/analyze", {
@@ -956,10 +970,17 @@ export default function Home() {
       const threads = (result.threads ?? []) as AiThread[];
       setAiThreads((current) => ({ ...current, [currentRoomId]: threads }));
       setAnalysisSnapshots((current) => ({ ...current, [currentRoomId]: currentRoomSignature }));
-      if (threads[0]) setActiveAiThreadId(threads[0].id);
-      else setAnalysisError("No repeated thread was strong enough yet. Add another fragment and return later.");
+      if (threads[0]) {
+        setActiveAiThreadId(threads[0].id);
+        setAgentPhase("calibrating");
+      }
+      else {
+        setAnalysisError("No repeated thread was strong enough yet. Add another fragment and return later.");
+        setAgentPhase("memory");
+      }
     } catch (error) {
       setAnalysisError(error instanceof Error ? error.message : "Drawer could not find a thread yet");
+      setAgentPhase("memory");
     } finally {
       setAnalyzing(false);
     }
@@ -1007,6 +1028,7 @@ export default function Home() {
   async function openSpark() {
     const candidate = activeAiThread ?? visibleAiThreads.find((thread) => thread.feedback === "accepted") ?? visibleAiThreads[0];
     if (candidate) {
+      setAgentPhase("returning");
       setActiveAiThreadId(candidate.id);
       setSparkOpen(true);
       setSparkText("");
@@ -1033,6 +1055,7 @@ export default function Home() {
       return;
     }
     if (currentRoom.isSample && !analysisSnapshots[currentRoomId]) {
+      setAgentPhase("returning");
       setSparkOpen(true);
       return;
     }
@@ -1084,6 +1107,21 @@ export default function Home() {
     + roomImages.filter((image) => !hiddenIds.includes(image.id)).length
     + roomTexts.filter((text) => !hiddenIds.includes(text.id)).length
     + roomAudios.filter((audio) => !hiddenIds.includes(audio.id)).length;
+  const displayedAgentPhase: AgentPhase = sparkOpen
+    ? "returning"
+    : activeAiThread
+      ? "calibrating"
+      : agentPhase === "memory" && currentAiThreads.length
+        ? "ready"
+        : agentPhase;
+  const agentStatus: Record<AgentPhase, string> = {
+    memory: `${visibleRoomCount} fragments remembered. Drawer is waiting for an invitation to read them.`,
+    understanding: "Reading images, words, sound, and time for relationships that can be evidenced.",
+    curating: "Turning those relationships into visual walls, anchors, labels, and breathing space.",
+    calibrating: "A Living Thread is open. Your response decides whether this reading belongs in memory.",
+    returning: "Returning a small opening from your own archive—the rest of the work stays yours.",
+    ready: "The room has been read. Open a Living Thread, adjust the gallery, or ask for a Spark.",
+  };
 
   function formatDuration(seconds: number) {
     return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -1265,6 +1303,20 @@ export default function Home() {
             </div>
           </div>
 
+          <section className={`agent-workflow agent-workflow--${displayedAgentPhase}`} aria-label="Drawer agent workflow" aria-live="polite">
+            <div className="agent-workflow-copy">
+              <span><i /> Drawer agent</span>
+              <p>{agentStatus[displayedAgentPhase]}</p>
+            </div>
+            <ol>
+              <li className={displayedAgentPhase === "memory" ? "is-active" : ""}><b>01</b><span>Memory</span></li>
+              <li className={displayedAgentPhase === "understanding" ? "is-active" : ""}><b>02</b><span>Understand</span></li>
+              <li className={displayedAgentPhase === "curating" ? "is-active" : ""}><b>03</b><span>Curate</span></li>
+              <li className={displayedAgentPhase === "calibrating" ? "is-active" : ""}><b>04</b><span>Confirm</span></li>
+              <li className={displayedAgentPhase === "returning" || displayedAgentPhase === "ready" ? "is-active" : ""}><b>05</b><span>{displayedAgentPhase === "ready" ? "Ready" : "Return"}</span></li>
+            </ol>
+          </section>
+
           <div className="room-layout">
             <div ref={roomCanvasRef} className={roomClass}>
               <div className="zoom-controls" aria-label="Canvas zoom controls">
@@ -1398,7 +1450,11 @@ export default function Home() {
 
                 {currentRoom.isSample && !currentAiThreads.length && <button
                 className={`living-thread${threadState !== "idle" ? " is-open" : ""}`}
-                onClick={() => setThreadState(threadState === "idle" ? "evidence" : "idle")}
+                onClick={() => {
+                  const opening = threadState === "idle";
+                  setThreadState(opening ? "evidence" : "idle");
+                  setAgentPhase(opening ? "calibrating" : "ready");
+                }}
                 aria-expanded={threadState !== "idle"}
               >
                 <span className="thread-pulse" />
@@ -1424,7 +1480,7 @@ export default function Home() {
                     <button className={threadState === "accepted" ? "is-selected" : ""} onClick={() => setThreadState("accepted")}>It does</button>
                     <button className={threadState === "rejected" ? "is-selected" : ""} onClick={() => setThreadState("rejected")}>Not really</button>
                   </div>
-                  <button className="return-button" onClick={() => setSparkOpen(true)}>Return to this thread <span>→</span></button>
+                  <button className="return-button" onClick={() => { setAgentPhase("returning"); setSparkOpen(true); }}>Return to this thread <span>→</span></button>
                 </aside>
                 )}
 
@@ -1511,8 +1567,8 @@ export default function Home() {
       )}
 
       {sparkOpen && (
-        <div className="spark-backdrop" role="dialog" aria-modal="true" aria-labelledby="spark-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setSparkOpen(false); }}>
-          <button className="spark-close" onClick={() => setSparkOpen(false)} aria-label="Close">×</button>
+        <div className="spark-backdrop" role="dialog" aria-modal="true" aria-labelledby="spark-title" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSpark(); }}>
+          <button className="spark-close" onClick={closeSpark} aria-label="Close">×</button>
           <div className="spark-content">
             <p className="eyebrow">{activeAiThread ? <>From · {activeAiThread.title}</> : "A small way in"}</p>
             <h2 id="spark-title" className={sparkLoading ? "is-loading" : ""}>{sparkLoading ? "Listening…" : activeAiThread ? (sparkText || activeAiThread.spark) : <>Almost<br /><em>through.</em></>}</h2>
@@ -1521,7 +1577,7 @@ export default function Home() {
               <img src="/fragment-UN7-iS_79oE.jpg" alt="The oldest image in the Thresholds thread" />
               <span>June 12 · oldest fragment</span>
             </div>
-            <button className="primary-button" onClick={() => setSparkOpen(false)}>Back to the room <span>→</span></button>
+            <button className="primary-button" onClick={closeSpark}>Back to the room <span>→</span></button>
           </div>
         </div>
       )}
