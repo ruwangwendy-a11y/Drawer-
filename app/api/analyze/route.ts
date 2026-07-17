@@ -16,7 +16,7 @@ const threadSchema = {
     threads: {
       type: "array",
       minItems: 0,
-      maxItems: 4,
+      maxItems: 5,
       items: {
         type: "object",
         additionalProperties: false,
@@ -97,7 +97,7 @@ CORE METHOD
 - Be visual-first and language-enriched. Images alone are sufficient evidence. Never penalize a creator for having no text or voice notes; use language only when it adds personal context.
 - A fragment may support multiple Threads. Categories are non-exclusive: the same image may belong to an object motif, a compositional habit, and a material study.
 - Search across these dimensions: motif/object; form (color, light, composition, scale); material/texture; spatial relationship; gesture/action; atmosphere; narrative/concept; process/medium; temporal development.
-- First inspect every fragment and generate candidates across different dimensions. Then make a separate diversity pass. Return zero to four Threads based on strength, never a quota and never stop merely because one valid Thread was found.
+- First inspect every fragment and generate candidates across different dimensions. Then make a separate diversity pass. Return zero to five Threads based on strength, never a quota and never stop merely because one valid Thread was found. In a rich room with ten or more fragments, actively test at least five distinct candidates before selecting the strongest set.
 
 EVIDENCE AND INTERPRETATION
 - Every Thread needs at least two distinct supplied fragment IDs. Cite the exact authoritative ID and a concrete, visible or quoted observation for every evidence item.

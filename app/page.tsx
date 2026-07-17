@@ -66,70 +66,70 @@ const fragments = [
     id: "subway",
     src: "/fragment-f31YwqhKrug.jpg",
     alt: "Reflections on a subway platform at night",
-    date: "June 18",
+    date: "April 07",
     className: "fragment fragment--subway",
   },
   {
     id: "hall",
     src: "/fragment-lldl9L5oYYA.jpg",
     alt: "A green corridor with repeated doorways",
-    date: "June 24",
+    date: "May 03",
     className: "fragment fragment--hall",
   },
   {
     id: "gate",
     src: "/fragment-h2n05gBQT-M.jpg",
     alt: "A quiet subway entrance gate",
-    date: "June 29",
+    date: "June 11",
     className: "fragment fragment--gate",
   },
   {
     id: "reflectionOne",
     src: "/sample-reflection-1846.jpg",
     alt: "Pedestrian signs multiplied in a dark glass reflection",
-    date: "Reflection study · 01",
+    date: "March 26 · reflection study 01",
     className: "fragment fragment--original-color fragment--reflection-one",
   },
   {
     id: "reflectionTwo",
     src: "/sample-reflection-1847.jpg",
     alt: "Bare trees reflected across a modern building facade",
-    date: "Reflection study · 02",
+    date: "April 19 · reflection study 02",
     className: "fragment fragment--original-color fragment--reflection-two",
   },
   {
     id: "reflectionThree",
     src: "/sample-reflection-1848.jpg",
     alt: "Empty theater seats seen through a reflective storefront window",
-    date: "Reflection study · 03",
+    date: "May 22 · reflection study 03",
     className: "fragment fragment--original-color fragment--reflection-three",
   },
   {
     id: "reflectionFour",
     src: "/sample-reflection-1849.jpg",
     alt: "A bright pedestrian sign in front of city buildings",
-    date: "Reflection study · 04",
+    date: "July 02 · reflection study 04",
     className: "fragment fragment--original-color fragment--reflection-four",
   },
   {
     id: "reflectionFive",
     src: "/sample-reflection-1870.jpg",
     alt: "A construction worker and street scene layered through glass reflections",
-    date: "Reflection study · 05",
+    date: "July 24 · reflection study 05",
     className: "fragment fragment--original-color fragment--reflection-five",
   },
   {
     id: "shadowReflection",
     src: "/sample-shadow-reflection.jpg",
     alt: "A pedestrian's shadow crossing a reflective glass facade",
-    date: "Reference · Sebastian Schuster / Unsplash",
+    date: "August 18 · Sebastian Schuster / Unsplash",
     className: "fragment fragment--original-color fragment--shadow-reflection",
   },
   {
     id: "rainWindow",
     src: "/sample-rain-window.jpg",
     alt: "A silhouetted passenger beside a rain-covered city window",
-    date: "Reference · Frankie Cordoba / Unsplash",
+    date: "September 06 · Frankie Cordoba / Unsplash",
     className: "fragment fragment--original-color fragment--rain-window",
   },
 ];
@@ -141,37 +141,37 @@ const memoryNotes = [
     target: "corridor",
   },
   {
-    date: "June 18 · voice note",
+    date: "April 07 · voice note",
     text: "Not fully inside. Not outside either. Maybe that is the part I want to keep.",
     target: "subway",
   },
   {
-    date: "June 29 · note",
+    date: "June 11 · note",
     text: "A place can be open and still refuse you.",
     target: "gate",
   },
   {
-    date: "Assignment note · reflection study",
+    date: "March 26 · assignment note",
     text: "I thought I was photographing signs. The glass kept putting the viewer back into the picture.",
     target: "reflectionOne",
   },
   {
-    date: "Assignment note · reflection study",
+    date: "May 22 · assignment note",
     text: "The reflection is always there, but most of the time we look through it.",
     target: "reflectionThree",
   },
   {
-    date: "Unfinished thought · reflection study",
+    date: "July 24 · unfinished thought",
     text: "Maybe a window does not only show what is behind it. It also keeps what passes in front.",
     target: "reflectionFive",
   },
   {
-    date: "Reference note · shadow study",
+    date: "August 18 · shadow study",
     text: "The shadow arrived before I noticed the person.",
     target: "shadowReflection",
   },
   {
-    date: "Reference note · rain study",
+    date: "September 06 · rain study",
     text: "Rain turns the window into a surface instead of a view.",
     target: "rainWindow",
   },
@@ -278,8 +278,12 @@ export default function Home() {
           setAnalysisSnapshots(state.analysisSnapshots ?? {});
           setRejectedInsights(state.rejectedInsights ?? {});
           const restoredMemoryItems = state.memoryItems ?? [];
-          const newSampleNotes = memoryNotes.filter((note) => !restoredMemoryItems.some((saved: typeof note) => saved.target === note.target && saved.date === note.date));
-          setMemoryItems(restoredMemoryItems.length ? [...restoredMemoryItems, ...newSampleNotes] : memoryNotes);
+          const datedMemoryItems = restoredMemoryItems.map((saved: typeof memoryNotes[number]) => {
+            const currentSampleNote = memoryNotes.find((note) => note.target === saved.target);
+            return currentSampleNote ? { ...saved, date: currentSampleNote.date } : saved;
+          });
+          const newSampleNotes = memoryNotes.filter((note) => !datedMemoryItems.some((saved: typeof note) => saved.target === note.target));
+          setMemoryItems(datedMemoryItems.length ? [...datedMemoryItems, ...newSampleNotes] : memoryNotes);
           const restoredPositions = state.positions ?? {};
           setPositions(state.threadLayoutVersion === THREAD_LAYOUT_VERSION
             ? restoredPositions
@@ -664,6 +668,23 @@ export default function Home() {
     setSelectedId(null);
   }
 
+  function tidyRoom() {
+    const roomItemIds = new Set([
+      ...(currentRoom.isSample ? fragments.map((item) => item.id) : []),
+      ...(currentRoom.isSample ? memoryItems.map((_, index) => `memory-${index}`) : []),
+      ...roomImages.map((item) => item.id),
+      ...roomTexts.map((item) => item.id),
+      ...roomAudios.map((item) => item.id),
+      ...currentAiThreads.map((item) => `ai-thread-${item.id}`),
+    ]);
+    setPositions((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !roomItemIds.has(id))));
+    setScales((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !roomItemIds.has(id))));
+    setSelectedId(null);
+    closeThreadFocus();
+    setRelationSignal("Tidied gently. Nothing was removed—your fragments simply returned to a calmer arrangement.");
+    window.setTimeout(() => setRelationSignal(null), 3200);
+  }
+
   function beginTextEdit() {
     if (!selectedId) return;
     if (selectedId.startsWith("memory-")) {
@@ -1006,6 +1027,7 @@ export default function Home() {
               <button className={`tool-button${showGrid ? " is-active" : ""}`} onClick={() => setShowGrid((value) => !value)} aria-pressed={showGrid}>
                 <span className="grid-icon" aria-hidden="true" /> {showGrid ? "Hide grid" : "Show grid"}
               </button>
+              <button className="tool-button" onClick={tidyRoom} title="Return fragments to a calmer arrangement"><span aria-hidden="true">⌁</span> Tidy gently</button>
               {selectedId && !hiddenIds.includes(selectedId) && (
                 <div className="header-selection-tools" aria-label="Selected item controls">
                   <span>Selected</span>
