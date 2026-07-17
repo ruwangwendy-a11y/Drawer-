@@ -58,6 +58,7 @@ The gallery engine applies:
 - one visual anchor per wall;
 - supporting works at smaller scale;
 - notes placed like labels near their evidence;
+- language cards are a hard no-overlap layer: text and voice may never cover an image or one another;
 - generous corridors between themes;
 - original aspect ratios and image color;
 - collision avoidance and preserved editability.

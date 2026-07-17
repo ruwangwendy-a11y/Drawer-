@@ -873,6 +873,45 @@ export default function Home() {
       }
       const nextPositions: Record<string, Point> = {};
       const nextScales: Record<string, number> = {};
+      type GalleryRect = { left: number; top: number; right: number; bottom: number };
+      const occupied: GalleryRect[] = [];
+      const rectFor = (element: HTMLElement, target: Point, scale: number): GalleryRect => ({
+        left: target.x,
+        top: target.y,
+        right: target.x + element.offsetWidth * scale,
+        bottom: target.y + element.offsetHeight * scale,
+      });
+      const rectsOverlap = (a: GalleryRect, b: GalleryRect, padding = 44) => !(
+        a.right + padding <= b.left
+        || a.left >= b.right + padding
+        || a.bottom + padding <= b.top
+        || a.top >= b.bottom + padding
+      );
+      const placeReadableCard = (element: HTMLElement, preferred: Point, scale: number, columnX: number) => {
+        const cardWidth = element.offsetWidth * scale;
+        const cardHeight = element.offsetHeight * scale;
+        const xCandidates = Array.from(new Set([
+          Math.min(ROOM_WIDTH - cardWidth - 70, Math.max(70, preferred.x)),
+          Math.min(ROOM_WIDTH - cardWidth - 70, Math.max(70, columnX)),
+          Math.min(ROOM_WIDTH - cardWidth - 70, Math.max(70, columnX - 285)),
+        ]));
+        const startY = Math.max(230, preferred.y);
+        for (const x of xCandidates) {
+          for (let y = startY; y <= roomHeight - cardHeight - 70; y += 34) {
+            const candidate = { left: x, top: y, right: x + cardWidth, bottom: y + cardHeight };
+            if (occupied.every((rect) => !rectsOverlap(candidate, rect))) {
+              occupied.push(candidate);
+              return { x, y };
+            }
+          }
+        }
+        // The canvas is deliberately tall. If a wall is unusually dense, keep
+        // moving downward instead of allowing language to cover the artwork.
+        const lowestEdge = occupied.reduce((lowest, rect) => Math.max(lowest, rect.bottom), startY);
+        const fallback = { x: xCandidates[0], y: lowestEdge + 70 };
+        occupied.push({ left: fallback.x, top: fallback.y, right: fallback.x + cardWidth, bottom: fallback.y + cardHeight });
+        return fallback;
+      };
 
       groups.forEach((group, groupIndex) => {
         const groupImages = group.imageIds.flatMap((id) => roomImages.find((image) => image.id === id) ?? []);
@@ -885,15 +924,23 @@ export default function Home() {
             ? { x: baseX, y: 220 + lift }
             : { x: baseX + 300 + (imageIndex % 2) * 28, y: 540 - lift + Math.floor((imageIndex - 1) / 2) * 340 };
           nextPositions[image.id] = { x: target.x - element.offsetLeft, y: target.y - element.offsetTop };
-          nextScales[image.id] = imageIndex === 0 ? 1.12 : .86;
+          const imageScale = imageIndex === 0 ? 1.12 : .86;
+          nextScales[image.id] = imageScale;
+          occupied.push(rectFor(element, target, imageScale));
         });
         const groupNotes = group.textIds.flatMap((id) => roomTexts.find((text) => text.id === id) ?? []);
         groupNotes.forEach((note, noteIndex) => {
           const element = elementFor(note.id);
           if (!element) return;
-          const target = { x: baseX + 335, y: 245 + lift + noteIndex * 150 };
+          const noteScale = .92;
+          const target = placeReadableCard(
+            element,
+            { x: baseX + 335, y: 245 + lift + noteIndex * 150 },
+            noteScale,
+            baseX + 335,
+          );
           nextPositions[note.id] = { x: target.x - element.offsetLeft, y: target.y - element.offsetTop };
-          nextScales[note.id] = .92;
+          nextScales[note.id] = noteScale;
         });
       });
 
@@ -901,17 +948,29 @@ export default function Home() {
         const element = elementFor(text.id);
         if (!element) return;
         const groupIndex = index % Math.max(1, groups.length);
-        const target = { x: 485 + groupIndex * 600, y: 260 + (groupIndex % 2 ? 65 : 0) + Math.floor(index / 5) * 150 };
+        const noteScale = .92;
+        const target = placeReadableCard(
+          element,
+          { x: 485 + groupIndex * 600, y: 260 + (groupIndex % 2 ? 65 : 0) + Math.floor(index / 5) * 150 },
+          noteScale,
+          485 + groupIndex * 600,
+        );
         nextPositions[text.id] = { x: target.x - element.offsetLeft, y: target.y - element.offsetTop };
-        nextScales[text.id] = .92;
+        nextScales[text.id] = noteScale;
       });
       roomAudios.forEach((audio, index) => {
         const element = elementFor(audio.id);
         if (!element) return;
         const groupIndex = index % Math.max(1, groups.length);
-        const target = { x: 190 + groupIndex * 600, y: 980 + Math.floor(index / 5) * 240 };
+        const audioScale = .9;
+        const target = placeReadableCard(
+          element,
+          { x: 190 + groupIndex * 600, y: 980 + Math.floor(index / 5) * 240 },
+          audioScale,
+          190 + groupIndex * 600,
+        );
         nextPositions[audio.id] = { x: target.x - element.offsetLeft, y: target.y - element.offsetTop };
-        nextScales[audio.id] = .9;
+        nextScales[audio.id] = audioScale;
       });
 
       setPositions((current) => ({ ...current, ...nextPositions }));
