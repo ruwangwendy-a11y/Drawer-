@@ -586,6 +586,26 @@ export default function Home() {
     openThreadFocus(visibleAiThreads[nextIndex]);
   }
 
+  function canvasAreaIsFree(candidate: Point, width: number, height: number, padding = 26) {
+    const stage = roomCanvasRef.current?.querySelector<HTMLElement>(".room-stage");
+    if (!stage) return true;
+    return Array.from(stage.querySelectorAll<HTMLElement>("[data-canvas-id]"))
+      .filter((element) => !hiddenIds.includes(element.dataset.canvasId ?? ""))
+      .every((element) => {
+        const id = element.dataset.canvasId ?? "";
+        const offset = positions[id] ?? { x: 0, y: 0 };
+        const scale = scales[id] ?? 1;
+        const left = element.offsetLeft + offset.x;
+        const top = element.offsetTop + offset.y;
+        const right = left + element.offsetWidth * scale;
+        const bottom = top + element.offsetHeight * scale;
+        return candidate.x + width + padding < left
+          || candidate.x - padding > right
+          || candidate.y + height + padding < top
+          || candidate.y - padding > bottom;
+      });
+  }
+
   function threadHome(thread: AiThread, threadIndex: number): Point {
     const visualPoints = thread.fragmentIds
       .map((id) => visualHome(id))
@@ -599,12 +619,21 @@ export default function Home() {
     const middle = Math.floor(visualPoints.length / 2);
     const medianX = visualPoints.length % 2 ? sortedX[middle] : (sortedX[middle - 1] + sortedX[middle]) / 2;
     const medianY = visualPoints.length % 2 ? sortedY[middle] : (sortedY[middle - 1] + sortedY[middle]) / 2;
-    const fanX = (threadIndex % 2) * 35;
-    const fanY = (threadIndex % 3 - 1) * 72;
-    return {
-      x: Math.max(70, Math.min(ROOM_WIDTH - 310, medianX + 115 + fanX)),
-      y: Math.max(110, Math.min(ROOM_HEIGHT - 130, medianY - 115 + fanY)),
-    };
+    const minX = Math.min(...visualPoints.map((point) => point.x));
+    const maxX = Math.max(...visualPoints.map((point) => point.x));
+    const minY = Math.min(...visualPoints.map((point) => point.y));
+    const maxY = Math.max(...visualPoints.map((point) => point.y));
+    const candidates = [
+      { x: medianX - 120, y: minY - 155 - (threadIndex % 2) * 70 },
+      { x: maxX + 105, y: medianY - 34 + (threadIndex % 3 - 1) * 76 },
+      { x: medianX - 120, y: maxY + 100 + (threadIndex % 2) * 70 },
+      { x: minX - 365, y: medianY - 34 + (threadIndex % 3 - 1) * 76 },
+      { x: 250 + (threadIndex % 4) * 720, y: 88 + Math.floor(threadIndex / 4) * 82 },
+    ].map((point) => ({
+      x: Math.max(55, Math.min(ROOM_WIDTH - 310, point.x)),
+      y: Math.max(82, Math.min(roomHeight - 130, point.y)),
+    }));
+    return candidates.find((candidate) => canvasAreaIsFree(candidate, 260, 64)) ?? candidates[candidates.length - 1];
   }
 
   function actualThreadHome(thread: AiThread, threadIndex: number): Point {
@@ -617,12 +646,16 @@ export default function Home() {
     // Keep the explanation physically attached to its Thread. Basing this on
     // the pre-focus viewport made distant Threads move into view while their
     // cards stayed behind, so their feedback controls appeared not to work.
-    const fitsRight = threadPoint.x + 270 + 470 <= ROOM_WIDTH - 30;
-    const preferredX = fitsRight ? threadPoint.x + 270 : threadPoint.x - 500;
-    return {
-      x: Math.max(30, Math.min(ROOM_WIDTH - 500, preferredX)),
-      y: Math.max(40, Math.min(ROOM_HEIGHT - 520, threadPoint.y - 45)),
-    };
+    const candidates = [
+      { x: threadPoint.x + 285, y: threadPoint.y - 45 },
+      { x: threadPoint.x - 515, y: threadPoint.y - 45 },
+      { x: threadPoint.x - 115, y: threadPoint.y + 95 },
+      { x: threadPoint.x - 115, y: threadPoint.y - 665 },
+    ].map((point) => ({
+      x: Math.max(25, Math.min(ROOM_WIDTH - 500, point.x)),
+      y: Math.max(35, Math.min(roomHeight - 640, point.y)),
+    }));
+    return candidates.find((candidate) => canvasAreaIsFree(candidate, 470, 610, 34)) ?? candidates[0];
   }
 
   function aiConnectorStyle(thread: AiThread, threadIndex: number, targetId: string) {
