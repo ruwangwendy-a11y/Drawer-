@@ -28,10 +28,9 @@ const threadSchema = {
             type: "array",
             minItems: 1,
             maxItems: 3,
-            uniqueItems: true,
-            items: { enum: ["motif", "form", "material", "space", "gesture", "atmosphere", "narrative", "process", "time"] },
+            items: { type: "string", enum: ["motif", "form", "material", "space", "gesture", "atmosphere", "narrative", "process", "time"] },
           },
-          stage: { enum: ["seed", "emerging", "recurring"] },
+          stage: { type: "string", enum: ["seed", "emerging", "recurring"] },
           observedPattern: { type: "string" },
           possibleInterpretation: { type: "string" },
           evidence: {
@@ -44,7 +43,7 @@ const threadSchema = {
               required: ["fragmentId", "modality", "observation"],
               properties: {
                 fragmentId: { type: "string" },
-                modality: { enum: ["image", "text", "audio"] },
+                modality: { type: "string", enum: ["image", "text", "audio"] },
                 observation: { type: "string" },
               },
             },
