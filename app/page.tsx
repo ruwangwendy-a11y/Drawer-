@@ -39,6 +39,8 @@ const fragmentHomes: Record<string, Point> = {
   reflectionThree: { x: 1855, y: 850 },
   reflectionFour: { x: 2650, y: 880 },
   reflectionFive: { x: 2220, y: 1420 },
+  shadowReflection: { x: 2800, y: 1590 },
+  rainWindow: { x: 2650, y: 1940 },
 };
 
 const memoryHomes = [
@@ -48,6 +50,8 @@ const memoryHomes = [
   { x: 2050, y: 430 },
   { x: 2350, y: 1050 },
   { x: 2500, y: 1430 },
+  { x: 3040, y: 1540 },
+  { x: 2310, y: 1940 },
 ];
 
 const fragments = [
@@ -114,6 +118,20 @@ const fragments = [
     date: "Reflection study · 05",
     className: "fragment fragment--original-color fragment--reflection-five",
   },
+  {
+    id: "shadowReflection",
+    src: "/sample-shadow-reflection.jpg",
+    alt: "A pedestrian's shadow crossing a reflective glass facade",
+    date: "Reference · Sebastian Schuster / Unsplash",
+    className: "fragment fragment--original-color fragment--shadow-reflection",
+  },
+  {
+    id: "rainWindow",
+    src: "/sample-rain-window.jpg",
+    alt: "A silhouetted passenger beside a rain-covered city window",
+    date: "Reference · Frankie Cordoba / Unsplash",
+    className: "fragment fragment--original-color fragment--rain-window",
+  },
 ];
 
 const memoryNotes = [
@@ -146,6 +164,16 @@ const memoryNotes = [
     date: "Unfinished thought · reflection study",
     text: "Maybe a window does not only show what is behind it. It also keeps what passes in front.",
     target: "reflectionFive",
+  },
+  {
+    date: "Reference note · shadow study",
+    text: "The shadow arrived before I noticed the person.",
+    target: "shadowReflection",
+  },
+  {
+    date: "Reference note · rain study",
+    text: "Rain turns the window into a surface instead of a view.",
+    target: "rainWindow",
   },
 ];
 
@@ -249,7 +277,9 @@ export default function Home() {
           setAiThreads(state.aiThreads ?? {});
           setAnalysisSnapshots(state.analysisSnapshots ?? {});
           setRejectedInsights(state.rejectedInsights ?? {});
-          setMemoryItems(state.memoryItems ?? memoryNotes);
+          const restoredMemoryItems = state.memoryItems ?? [];
+          const newSampleNotes = memoryNotes.filter((note) => !restoredMemoryItems.some((saved: typeof note) => saved.target === note.target && saved.date === note.date));
+          setMemoryItems(restoredMemoryItems.length ? [...restoredMemoryItems, ...newSampleNotes] : memoryNotes);
           const restoredPositions = state.positions ?? {};
           setPositions(state.threadLayoutVersion === THREAD_LAYOUT_VERSION
             ? restoredPositions

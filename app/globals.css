@@ -164,6 +164,8 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .fragment--reflection-three { left: 1700px; top: 700px; width: 310px; }
 .fragment--reflection-four { left: 2500px; top: 730px; width: 300px; }
 .fragment--reflection-five { left: 2050px; top: 1250px; width: 340px; }
+.fragment--shadow-reflection { left: 2690px; top: 1420px; width: 220px; }
+.fragment--rain-window { left: 2470px; top: 1810px; width: 360px; }
 .fragment--captured { box-shadow: 0 18px 44px rgba(23,24,21,.13); }
 .fragment--captured img { filter: none; }
 .fragment--captured::before { content: "new"; position: absolute; z-index: 2; top: 8px; left: 8px; padding: 4px 6px; background: rgba(244,243,239,.88); font-family: var(--font-geist-mono); text-transform: uppercase; font-size: 6px; letter-spacing: .1em; }
