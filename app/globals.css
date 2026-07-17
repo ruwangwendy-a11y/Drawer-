@@ -67,12 +67,7 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .drawer-heading h1 { margin: 0; font-size: clamp(45px, 4.5vw, 70px); line-height: 1.02; font-weight: 440; letter-spacing: -.06em; }
 .drawer-heading h1 em { font-family: Georgia, serif; font-weight: 400; }
 .drawer-heading .memory-intro { max-width: 390px; margin-top: 26px; color: var(--muted); line-height: 1.6; }
-.memory-language { width: min(390px, 100%); margin-top: 38px; padding: 4px 0; display: grid; grid-template-columns: repeat(2, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.memory-language span { min-height: 50px; display: flex; align-items: center; gap: 13px; border-bottom: 1px solid var(--soft-line); color: var(--ink); font-size: 15px; letter-spacing: -.02em; }
-.memory-language span:nth-child(odd) { border-right: 1px solid var(--soft-line); }
-.memory-language span:nth-last-child(-n+2) { border-bottom: 0; }
-.memory-language i { width: 22px; color: var(--moss); font-family: var(--font-geist-mono); font-size: 7px; font-style: normal; letter-spacing: .08em; }
-.drawer-heading .memory-growth { max-width: 390px; margin-top: 24px; color: var(--muted); font-size: 11px; line-height: 1.65; }
+.drawer-heading .memory-growth { max-width: 390px; margin-top: 38px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.7; }
 .memory-growth strong { display: block; margin-bottom: 3px; color: var(--ink); font-weight: 540; }
 .drawer-heading .capture-live-status { max-width: 390px; margin-top: 16px; padding-left: 13px; border-left: 1px solid var(--moss); color: var(--moss); font-family: var(--font-geist-mono); font-size: 8px; letter-spacing: .03em; }
 .drawer-shell { width: min(650px, 100%); justify-self: end; border: 1px solid var(--line); background: rgba(255,255,255,.28); box-shadow: 0 28px 100px rgba(23,24,21,.06); }

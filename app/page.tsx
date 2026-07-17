@@ -864,12 +864,7 @@ export default function Home() {
             <p className="eyebrow">Your creative memory</p>
             <h1 id="drawer-title">When an idea appears,<br /><em>give it somewhere to stay.</em></h1>
             <p className="memory-intro">Inspiration often arrives before it can explain itself. Leave the image, sound, or unfinished thought here. You can understand it later.</p>
-            <div className="memory-language" aria-label="How creative memory grows">
-              {['Memory', 'Room', 'Fragments', 'Context', 'Thread', 'Spark'].map((word, index) => (
-                <span key={word}><i>{String(index + 1).padStart(2, '0')}</i>{word}</span>
-              ))}
-            </div>
-            <p className="memory-growth"><strong>Every day, the memory graph grows.</strong> Living Threads become more personal as Drawer learns what you keep, connect, and return to.</p>
+            <p className="memory-growth"><strong>Every day, your creative memory grows.</strong> Each fragment keeps a little of the context around it. Over time, Drawer notices the ideas that keep returning—and brings them back when you need a way into your next piece of work.</p>
             {(pendingImages.length > 0 || recordedAudio || draft.trim()) && <p className="capture-live-status">A new part of your memory is ready to enter the Room.</p>}
           </div>
           <div className="drawer-shell">
