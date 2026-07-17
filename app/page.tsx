@@ -1253,7 +1253,7 @@ export default function Home() {
               <img src="/fragment-UN7-iS_79oE.jpg" alt="The oldest image in the Thresholds thread" />
               <span>June 12 · oldest fragment</span>
             </div>
-            <button className="primary-button" onClick={() => { setSparkOpen(false); setView("drawer"); }}>Respond to this <span>→</span></button>
+            <button className="primary-button" onClick={() => setSparkOpen(false)}>Back to the room <span>→</span></button>
           </div>
         </div>
       )}
