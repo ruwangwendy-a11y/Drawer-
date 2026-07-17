@@ -27,7 +27,7 @@ type AiThread = {
 };
 type RejectedInsight = { title: string; summary: string };
 const ANALYSIS_VERSION = 5;
-const THREAD_LAYOUT_VERSION = 3;
+const THREAD_LAYOUT_VERSION = 4;
 
 const fragmentHomes: Record<string, Point> = {
   corridor: { x: 270, y: 338 },
