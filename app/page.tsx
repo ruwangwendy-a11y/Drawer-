@@ -505,7 +505,9 @@ export default function Home() {
     const points = thread.fragmentIds.map(sourceHome).filter((point): point is Point => Boolean(point));
     if (!points.length) return;
     const threadIndex = Math.max(0, visibleAiThreads.findIndex((item) => item.id === thread.id));
-    const focusPoints = [...points, threadHome(thread, threadIndex)];
+    const actualThread = actualThreadHome(thread, threadIndex);
+    const card = threadCardHome(actualThread);
+    const focusPoints = [...points, actualThread, { x: card.x + 235, y: card.y + 240 }];
     const centerX = focusPoints.reduce((sum, point) => sum + point.x, 0) / focusPoints.length;
     const centerY = focusPoints.reduce((sum, point) => sum + point.y, 0) / focusPoints.length;
     window.requestAnimationFrame(() => {
@@ -555,6 +557,19 @@ export default function Home() {
     return {
       x: Math.max(70, Math.min(ROOM_WIDTH - 310, roomOnRight ? maxX + 90 : minX - 300)),
       y: Math.max(110, Math.min(ROOM_HEIGHT - 130, centerY - 35 + threadIndex * 70)),
+    };
+  }
+
+  function actualThreadHome(thread: AiThread, threadIndex: number): Point {
+    const home = threadHome(thread, threadIndex);
+    const offset = positions[`ai-thread-${thread.id}`] ?? { x: 0, y: 0 };
+    return { x: home.x + offset.x, y: home.y + offset.y };
+  }
+
+  function threadCardHome(threadPoint: Point): Point {
+    return {
+      x: Math.max(30, Math.min(ROOM_WIDTH - 500, threadPoint.x + 750 < ROOM_WIDTH ? threadPoint.x + 270 : threadPoint.x - 500)),
+      y: Math.max(40, Math.min(ROOM_HEIGHT - 520, threadPoint.y - 45)),
     };
   }
 
@@ -753,7 +768,8 @@ export default function Home() {
   const visibleAiThreads = currentAiThreads.filter((thread) => thread.feedback !== "rejected");
   const activeAiThread = visibleAiThreads.find((thread) => thread.id === activeAiThreadId) ?? null;
   const activeAiThreadIndex = activeAiThread ? visibleAiThreads.findIndex((thread) => thread.id === activeAiThread.id) : -1;
-  const activeThreadHome = activeAiThread ? threadHome(activeAiThread, Math.max(0, activeAiThreadIndex)) : null;
+  const activeThreadHome = activeAiThread ? actualThreadHome(activeAiThread, Math.max(0, activeAiThreadIndex)) : null;
+  const activeThreadCardPosition = activeThreadHome ? threadCardHome(activeThreadHome) : null;
   const currentSourceIds = new Set([
     ...(currentRoom.isSample ? fragments.map((item) => item.id) : []),
     ...(currentRoom.isSample ? memoryItems.map((_, index) => `memory-${index}`) : []),
@@ -1139,7 +1155,7 @@ export default function Home() {
                 ))}
 
                 {activeAiThread && (
-                  <aside className="thread-card thread-card--generated" style={activeThreadHome ? { left: `${Math.min(ROOM_WIDTH - 520, activeThreadHome.x + 20)}px`, top: `${Math.min(ROOM_HEIGHT - 520, activeThreadHome.y + 70)}px` } : undefined}>
+                  <aside className="thread-card thread-card--generated" style={activeThreadCardPosition ? { left: `${activeThreadCardPosition.left}px`, top: `${activeThreadCardPosition.top}px` } : undefined}>
                     <div className="thread-card-heading">
                       <p>Living Thread · GPT-5.6</p>
                       <div className="thread-card-nav" aria-label="Living Thread navigation">
