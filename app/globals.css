@@ -221,11 +221,19 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .thread-card-nav button:hover { background: rgba(23,24,21,.06); }
 .thread-card-nav button:disabled { opacity: .25; cursor: default; }
 .thread-card h2 { margin: 28px 0 10px; font-size: 29px; font-weight: 470; letter-spacing: -.045em; }
+.thread-meta { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 20px; }
+.thread-meta span { padding: 4px 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-family: var(--font-geist-mono); font-size: 7px; letter-spacing: .05em; text-transform: uppercase; }
+.thread-meta .thread-stage { color: #52604c; border-color: rgba(82,96,76,.32); background: rgba(111,120,99,.08); }
+.thread-reading { margin-bottom: 19px; }
+.thread-section-label { margin: 0 0 5px; color: var(--muted); font-family: var(--font-geist-mono); font-size: 7px; letter-spacing: .08em; text-transform: uppercase; }
 .thread-summary { margin: 0 0 24px; color: #575951; font-size: 12px; line-height: 1.55; }
+.thread-reading .thread-summary { margin-bottom: 15px; color: var(--ink); }
+.thread-interpretation { margin: 0; padding-left: 12px; border-left: 1px solid rgba(111,120,99,.45); color: #66685f; font-family: Georgia, serif; font-size: 11px; line-height: 1.55; }
 .evidence-list { margin: 0; border-top: 1px solid var(--line); }
 .evidence-list div { display: grid; grid-template-columns: 58px 1fr; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--soft-line); font-size: 10px; line-height: 1.45; }
 .evidence-list dt { color: var(--muted); }
 .evidence-list dd { margin: 0; }
+.evidence-source { display: block; margin-bottom: 3px; color: #73776d; font-family: var(--font-geist-mono); font-size: 7px; letter-spacing: .04em; }
 .thread-card blockquote { margin: 21px 0; padding-left: 13px; border-left: 1px solid var(--moss); font-family: Georgia, serif; font-size: 12px; line-height: 1.55; }
 .thread-card cite { display: block; margin-top: 8px; font-family: var(--font-geist-mono); font-style: normal; color: var(--muted); text-transform: uppercase; font-size: 7px; letter-spacing: .08em; }
 .thread-feedback { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 9px; }

@@ -8,19 +8,25 @@ type CapturedImage = { id: string; src: string; name: string; note: string; date
 type CapturedText = { id: string; text: string; date: string; roomId: string };
 type CapturedAudio = { id: string; src: string; date: string; duration: number; roomId: string; transcript?: string };
 type Point = { x: number; y: number };
+type AiEvidence = { fragmentId: string; modality: "image" | "text" | "audio"; observation: string };
 type AiThread = {
   id: string;
   title: string;
-  summary: string;
-  visualEvidence: string[];
-  languageEvidence: string[];
+  dimensions?: string[];
+  stage?: "seed" | "emerging" | "recurring";
+  observedPattern?: string;
+  possibleInterpretation?: string;
+  evidence?: AiEvidence[];
+  summary?: string;
+  visualEvidence?: string[];
+  languageEvidence?: string[];
   timeEvidence: string;
   fragmentIds: string[];
   spark: string;
   feedback?: "accepted" | "rejected";
 };
 type RejectedInsight = { title: string; summary: string };
-const ANALYSIS_VERSION = 4;
+const ANALYSIS_VERSION = 5;
 
 const fragmentHomes: Record<string, Point> = {
   corridor: { x: 278, y: 280 },
@@ -723,7 +729,7 @@ export default function Home() {
   }
 
   function rejectThread(thread: AiThread) {
-    const insight = { title: thread.title, summary: thread.summary };
+    const insight = { title: thread.title, summary: thread.observedPattern ?? thread.summary ?? "" };
     setAiThreads((current) => ({
       ...current,
       [currentRoomId]: (current[currentRoomId] ?? []).map((item) => item.id === thread.id ? { ...item, feedback: "rejected" } : item),
@@ -1155,7 +1161,7 @@ export default function Home() {
                     onMouseLeave={() => setHoveredAiThreadId(null)}
                   >
                     <span className="thread-pulse" />
-                    <span><strong>{thread.title}</strong><small>{thread.fragmentIds.length} connected fragments · GPT-5.6</small></span>
+                    <span><strong>{thread.title}</strong><small>{thread.stage ?? "emerging"} · {thread.fragmentIds.length} fragments · GPT-5.6</small></span>
                   </button>
                   );
                   })()
@@ -1173,10 +1179,21 @@ export default function Home() {
                       </div>
                     </div>
                     <h2>{activeAiThread.title}</h2>
-                    <p className="thread-summary">{activeAiThread.summary}</p>
+                    <div className="thread-meta">
+                      <span className={`thread-stage thread-stage--${activeAiThread.stage ?? "emerging"}`}>{activeAiThread.stage ?? "emerging"}</span>
+                      {(activeAiThread.dimensions ?? ["visual pattern"]).map((dimension) => <span key={dimension}>{dimension}</span>)}
+                    </div>
+                    <section className="thread-reading">
+                      <p className="thread-section-label">Observed in your archive</p>
+                      <p className="thread-summary">{activeAiThread.observedPattern ?? activeAiThread.summary}</p>
+                      {activeAiThread.possibleInterpretation && <><p className="thread-section-label">A possible interpretation</p><p className="thread-interpretation">{activeAiThread.possibleInterpretation}</p></>}
+                    </section>
                     <dl className="evidence-list">
-                      <div><dt>Visual</dt><dd>{activeAiThread.visualEvidence.join(" · ") || "No visual evidence cited."}</dd></div>
-                      <div><dt>Language</dt><dd>{activeAiThread.languageEvidence.join(" · ") || "No language evidence cited."}</dd></div>
+                      {(activeAiThread.evidence ?? []).map((item, index) => <div key={`${item.fragmentId}-${index}`}><dt>{item.modality}</dt><dd><span className="evidence-source">{item.fragmentId}</span>{item.observation}</dd></div>)}
+                      {!activeAiThread.evidence?.length && <>
+                        <div><dt>Visual</dt><dd>{activeAiThread.visualEvidence?.join(" · ") || "Repeated visual evidence across this room."}</dd></div>
+                        {!!activeAiThread.languageEvidence?.length && <div><dt>Language</dt><dd>{activeAiThread.languageEvidence.join(" · ")}</dd></div>}
+                      </>}
                       <div><dt>Time</dt><dd>{activeAiThread.timeEvidence}</dd></div>
                     </dl>
                     <div className="thread-feedback">
