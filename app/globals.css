@@ -261,6 +261,7 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .spark-content { position: relative; width: min(900px, 92vw); min-height: 580px; padding: 70px 62px; background: var(--paper); overflow: hidden; }
 .spark-content::after { content: ""; position: absolute; width: 380px; height: 380px; border: 1px solid rgba(111,120,99,.23); border-radius: 50%; right: -170px; bottom: -170px; }
 .spark-content h2 { max-width: 630px; margin: 0; font-size: clamp(48px, 6vw, 80px); line-height: 1.03; letter-spacing: -.06em; font-weight: 430; }
+.spark-content h2.is-loading { color: #8b8d85; font-family: Georgia, serif; font-style: italic; }
 .spark-content > p:not(.eyebrow) { max-width: 480px; margin: 28px 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .spark-source { position: absolute; right: 55px; top: 58px; width: 155px; }
 .spark-source img { width: 100%; height: 210px; object-fit: cover; filter: saturate(.5); }

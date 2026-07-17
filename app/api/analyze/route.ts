@@ -115,7 +115,7 @@ GROWTH STAGE
 
 OUTPUT
 - Threads must be meaningfully distinct, though their evidence may overlap.
-- Write concise, precise, evocative English. The spark should retrieve a new way into the creator's own material, not generate an unrelated idea.
+- Write concise, precise, evocative English. The spark is only a fallback for the separate Spark interaction: use 1–4 words when possible, never more than 6; do not explain, summarize, or name the Thread.
 - If no defensible recurrence exists, return an empty threads array.`,
       input: [{ role: "user", content }],
       text: { format: { type: "json_schema", name: "drawer_living_threads", strict: true, schema: threadSchema } },

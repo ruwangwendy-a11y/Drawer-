@@ -157,6 +157,8 @@ export default function Home() {
   const [threadState, setThreadState] = useState<ThreadState>("idle");
   const [focusedFragment, setFocusedFragment] = useState<string | null>(null);
   const [sparkOpen, setSparkOpen] = useState(false);
+  const [sparkText, setSparkText] = useState("");
+  const [sparkLoading, setSparkLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [recording, setRecording] = useState(false);
   const [draft, setDraft] = useState("");
@@ -763,11 +765,32 @@ export default function Home() {
     setLastRejected(null);
   }
 
-  function openSpark() {
+  async function openSpark() {
     const candidate = activeAiThread ?? visibleAiThreads.find((thread) => thread.feedback === "accepted") ?? visibleAiThreads[0];
     if (candidate) {
       setActiveAiThreadId(candidate.id);
       setSparkOpen(true);
+      setSparkText("");
+      setSparkLoading(true);
+      try {
+        const response = await fetch("/api/spark", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            title: candidate.title,
+            observedPattern: candidate.observedPattern ?? candidate.summary,
+            possibleInterpretation: candidate.possibleInterpretation ?? "",
+            previousSpark: candidate.spark,
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error ?? "Drawer could not find a spark yet");
+        setSparkText(result.spark);
+      } catch {
+        setSparkText(candidate.spark);
+      } finally {
+        setSparkLoading(false);
+      }
       return;
     }
     if (currentRoom.isSample && !analysisSnapshots[currentRoomId]) {
@@ -963,7 +986,7 @@ export default function Home() {
                   <button onClick={() => setSelectedId(null)}>Done</button>
                 </div>
               )}
-              <button className="tool-button" onClick={openSpark}><span aria-hidden="true">✦</span> Give me a word</button>
+              <button className="tool-button" onClick={openSpark}><span aria-hidden="true">✦</span> Give me a spark</button>
               <button className="tool-button tool-button--discover" onClick={discoverThreads} disabled={analyzing || (hasAnalyzedRoom && !roomChangedSinceAnalysis)}>
                 <span aria-hidden="true">◎</span> {analyzing ? "Noticing…" : shouldSeekDifferentConnection ? "Look for a different connection" : analysisNeedsUpgrade ? "New analysis available · Look again" : roomChangedSinceAnalysis ? "Room changed · Look again" : hasAnalyzedRoom ? "Threads are up to date" : "Discover threads"}
               </button>
@@ -1223,9 +1246,9 @@ export default function Home() {
         <div className="spark-backdrop" role="dialog" aria-modal="true" aria-labelledby="spark-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setSparkOpen(false); }}>
           <button className="spark-close" onClick={() => setSparkOpen(false)} aria-label="Close">×</button>
           <div className="spark-content">
-            <p className="eyebrow">Return to this thread</p>
-            <h2 id="spark-title">{activeAiThread ? activeAiThread.spark : <>Make something<br /><em>that never fully opens.</em></>}</h2>
-            <p>{activeAiThread ? <>Return to <strong>{activeAiThread.title}</strong>. Use this as an opening, not an instruction.</> : <>Begin with the oldest image in <strong>Thresholds</strong>. Respond with sound instead of another image.</>}</p>
+            <p className="eyebrow">{activeAiThread ? <>From · {activeAiThread.title}</> : "A small way in"}</p>
+            <h2 id="spark-title" className={sparkLoading ? "is-loading" : ""}>{sparkLoading ? "Listening…" : activeAiThread ? (sparkText || activeAiThread.spark) : <>Almost<br /><em>through.</em></>}</h2>
+            <p>{activeAiThread ? "Keep it, ignore it, or let it become something else." : "Only a beginning. The rest stays yours."}</p>
             <div className="spark-source">
               <img src="/fragment-UN7-iS_79oE.jpg" alt="The oldest image in the Thresholds thread" />
               <span>June 12 · oldest fragment</span>
