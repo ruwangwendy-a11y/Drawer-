@@ -185,7 +185,8 @@ export default function Home() {
   const [rejectedInsights, setRejectedInsights] = useState<Record<string, RejectedInsight[]>>({});
   const [lastRejected, setLastRejected] = useState<{ roomId: string; threadId: string; insight: RejectedInsight; previousSnapshot: string } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
-  const dragState = useRef<{ id: string; startX: number; startY: number; origin: Point; target: HTMLElement } | null>(null);
+  const dragState = useRef<{ id: string; startX: number; startY: number; origin: Point; target: HTMLElement; moved: boolean } | null>(null);
+  const suppressClick = useRef<string | null>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
   const recordingTimer = useRef<number | null>(null);
@@ -404,6 +405,7 @@ export default function Home() {
       startY: event.clientY,
       origin: positions[id] ?? { x: 0, y: 0 },
       target,
+      moved: false,
     };
     setSelectedId(id);
     setDraggingId(id);
@@ -412,6 +414,9 @@ export default function Home() {
   function moveFragment(event: ReactPointerEvent<HTMLElement>) {
     const active = dragState.current;
     if (!active) return;
+    const distance = Math.hypot(event.clientX - active.startX, event.clientY - active.startY);
+    if (distance < 4 && !active.moved) return;
+    active.moved = true;
     const x = active.origin.x + (event.clientX - active.startX) / zoom;
     const y = active.origin.y + (event.clientY - active.startY) / zoom;
     active.target.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scales[active.id] ?? 1})`;
@@ -424,9 +429,12 @@ export default function Home() {
       x: active.origin.x + (event.clientX - active.startX) / zoom,
       y: active.origin.y + (event.clientY - active.startY) / zoom,
     };
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     dragState.current = null;
     setDraggingId(null);
+    if (!active.moved) return;
+    suppressClick.current = id;
+    window.setTimeout(() => { if (suppressClick.current === id) suppressClick.current = null; }, 0);
     setPositions((current) => ({ ...current, [id]: finalPosition }));
     const kind = id.startsWith("ai-thread-") ? "This Living Thread" : id.startsWith("memory-") ? "This memory" : id.startsWith("audio-") ? "This voice note" : id.startsWith("user-") ? "Your new fragment" : "This fragment";
     setRelationSignal(`${kind} was moved. Drawer will treat its new neighbors as a relationship signal.`);
@@ -602,7 +610,7 @@ export default function Home() {
       ...current,
       [currentRoomId]: (current[currentRoomId] ?? []).map((thread) => thread.id === threadId ? { ...thread, feedback: "accepted" } : thread),
     }));
-    setRelationSignal("Kept as part of your creative memory.");
+    setRelationSignal("Kept ✓ Drawer will remember this response and prefer this thread when you ask for a way back in.");
     window.setTimeout(() => setRelationSignal(null), 2600);
   }
 
@@ -742,10 +750,15 @@ export default function Home() {
           <div className="drawer-heading">
             <p className="eyebrow">Quick capture</p>
             <h1 id="drawer-title">Put something away.</h1>
-            <p>No title. No tags. You can explain it later—or not at all.</p>
+            <p>Catch it before it becomes clear. Drawer keeps the image, sound, and thought together—then brings them back when a connection begins to form.</p>
           </div>
           <div className="drawer-shell">
             <div className="drawer-content">
+              <div className="capture-promise" aria-label="How Drawer works">
+                <span><b>01</b> Leave a fragment</span>
+                <span><b>02</b> Close the drawer</span>
+                <span><b>03</b> Meet it again</span>
+              </div>
               <div className={`upload-card${pendingImages.length ? " has-images" : ""}`} role="button" tabIndex={0} onClick={() => fileInput.current?.click()} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") fileInput.current?.click(); }} onDragOver={(event) => event.preventDefault()} onDrop={handleDrop}>
                 {pendingImages.length ? (
                   <div className="upload-preview-grid">
@@ -848,6 +861,11 @@ export default function Home() {
               </div>
               <div className="room-stage-space" style={{ width: `${ROOM_WIDTH * zoom}px`, height: `${ROOM_HEIGHT * zoom}px` }}>
               <div className={`room-stage${showGrid ? " has-grid" : ""}`} style={{ transform: `scale(${zoom})` }}>
+                <div className="canvas-guide" aria-label="Canvas guide">
+                  <span>Move anything to arrange your thinking.</span>
+                  <span>Open a Living Thread to reveal its evidence.</span>
+                  <span>Dimmed fragments stay here—they are simply outside this connection.</span>
+                </div>
                 <div className="canvas-zone canvas-zone--visual" aria-hidden="true">
                   <span>Visual field</span>
                   <small>images · references · works in progress</small>
@@ -1005,7 +1023,11 @@ export default function Home() {
                     key={`ai-${thread.id}`}
                     className={`living-thread living-thread--generated${activeAiThreadId === thread.id ? " is-open" : ""}${activeAiThread && activeAiThreadId !== thread.id ? " is-ai-muted" : ""}`}
                     style={{ left: `${1650 + index * 330}px`, top: "920px", transform: itemTransform(`ai-thread-${thread.id}`) }}
-                    onClick={() => setActiveAiThreadId(activeAiThreadId === thread.id ? null : thread.id)}
+                    onClick={() => {
+                      const dragId = `ai-thread-${thread.id}`;
+                      if (suppressClick.current === dragId) return;
+                      setActiveAiThreadId(activeAiThreadId === thread.id ? null : thread.id);
+                    }}
                     onPointerDown={(event) => startMove(event, `ai-thread-${thread.id}`)}
                     onPointerMove={moveFragment}
                     onPointerUp={(event) => endMove(event, `ai-thread-${thread.id}`)}
