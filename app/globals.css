@@ -17,7 +17,7 @@ button, textarea { font: inherit; }
 button { color: inherit; }
 button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); outline-offset: 3px; }
 
-.app { min-height: 100vh; overflow: hidden; }
+.app { min-height: 100vh; overflow-x: hidden; }
 .topbar { height: 72px; padding: 0 34px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; border-bottom: 1px solid var(--soft-line); position: relative; z-index: 20; }
 .wordmark { border: 0; padding: 0; background: transparent; font-size: 20px; letter-spacing: -0.04em; font-weight: 580; justify-self: start; cursor: pointer; }
 .wordmark-dot { color: var(--moss); }
@@ -61,9 +61,9 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .story-steps h3 { margin: 45px 0 13px; font-size: 19px; font-weight: 500; letter-spacing: -.025em; }
 .story-steps p { max-width: 330px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 
-.drawer-view { min-height: calc(100vh - 72px); padding: 8vh 7vw 0; display: grid; grid-template-columns: .75fr 1.25fr; gap: 6vw; align-items: start; transition: opacity .6s ease, transform .6s ease; }
+.drawer-view { min-height: calc(100vh - 72px); padding: clamp(34px, 5vh, 58px) 7vw 48px; display: grid; grid-template-columns: .75fr 1.25fr; gap: 6vw; align-items: start; transition: opacity .6s ease, transform .6s ease; }
 .drawer-view.is-closing { opacity: 0; transform: translateY(26px); }
-.drawer-heading { padding-top: 8vh; }
+.drawer-heading { padding-top: clamp(12px, 2vh, 24px); }
 .drawer-heading h1 { margin: 0; font-size: clamp(45px, 4.5vw, 70px); line-height: 1.02; font-weight: 440; letter-spacing: -.06em; }
 .drawer-heading h1 em { font-family: Georgia, serif; font-weight: 400; }
 .drawer-heading .memory-intro { max-width: 390px; margin-top: 26px; color: var(--muted); line-height: 1.6; }
