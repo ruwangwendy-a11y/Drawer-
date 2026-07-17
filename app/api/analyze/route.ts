@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 
 type RoomMaterial = {
   roomName?: string;
-  images?: Array<{ id: string; src: string; date?: string }>;
+  images?: Array<{ id: string; src: string; date?: string; label?: string }>;
   texts?: Array<{ id: string; text: string; date?: string }>;
   audios?: Array<{ id: string; transcript?: string; date?: string }>;
   rejectedThreads?: Array<{ title: string; summary: string }>;
@@ -53,23 +53,28 @@ export async function POST(request: Request) {
   const origin = new URL(request.url).origin;
   const content: Array<Record<string, unknown>> = [{
     type: "input_text",
-    text: JSON.stringify({ roomName: material.roomName ?? "Untitled room", images, texts, audios, rejectedThreads: material.rejectedThreads ?? [] }),
+    text: `ROOM: ${material.roomName ?? "Untitled room"}\nTOTAL MATERIAL: ${images.length} images, ${texts.length} text notes, ${audios.length} voice transcripts. Each image below is immediately preceded by its authoritative fragment ID. Never attach an image's content to a different ID.`,
   }];
   for (const image of images) {
     const imageUrl = new URL(image.src, origin).toString();
-    content.push({ type: "input_image", image_url: imageUrl, detail: "low" });
+    content.push({ type: "input_text", text: `IMAGE FRAGMENT ID: ${image.id}\nDATE: ${image.date ?? "Unknown"}\nLABEL: ${image.label ?? "Untitled image"}` });
+    content.push({ type: "input_image", image_url: imageUrl, detail: "auto" });
   }
+  content.push({
+    type: "input_text",
+    text: `TEXT AND VOICE FRAGMENTS:\n${JSON.stringify({ texts, audios })}\n\nPREVIOUSLY REJECTED INTERPRETATIONS (do not repeat or lightly rephrase):\n${JSON.stringify(material.rejectedThreads ?? [])}`,
+  });
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { authorization: `Bearer ${env.OPENAI_API_KEY}`, "content-type": "application/json" },
     body: JSON.stringify({
       model: "gpt-5.6-luna",
-      reasoning: { effort: "low" },
-      instructions: "You are Drawer, a restrained creative-memory assistant. Return between zero and four Living Threads based only on evidential strength—never aim for a fixed count and never fill a quota. Find only recurring patterns supported by at least two supplied fragments. Each Thread must be meaningfully distinct; merge overlapping interpretations and prefer fewer strong Threads over several variations of the same idea. Treat interpretations as hypotheses, never diagnoses or authoritative claims. Cite concrete visual, linguistic, and temporal evidence. Use the supplied fragment ids exactly. Do not repeat or lightly rephrase any rejectedThreads; look for a genuinely different connection. Write concise, evocative English. If no defensible pattern exists, return an empty threads array.",
+      reasoning: { effort: "medium" },
+      instructions: "You are Drawer, a restrained creative-memory assistant. Return zero to four Living Threads based only on evidential strength; never fill a quota. First inspect every supplied fragment and develop candidate patterns. Then perform a separate diversity pass: when the room contains eight or more fragments, do not stop after the first valid pattern—actively test whether another independent, well-supported pattern exists. Return fewer only when additional candidates are genuinely weak. Each Thread must be supported by at least two supplied fragments and be meaningfully distinct; merge overlapping interpretations. A shared color or object alone is too shallow unless language, time, composition, or creative intent gives it a defensible meaning. Treat interpretations as hypotheses, never diagnoses. Every image is paired with the IMAGE FRAGMENT ID immediately before it; cite only that exact ID for that image and never transfer visual content between IDs. Cite concrete visual, linguistic, and temporal evidence. Do not repeat or lightly rephrase rejected interpretations. Write concise, evocative English. If no defensible pattern exists, return an empty threads array.",
       input: [{ role: "user", content }],
       text: { format: { type: "json_schema", name: "drawer_living_threads", strict: true, schema: threadSchema } },
-      max_output_tokens: 2400,
+      max_output_tokens: 3200,
     }),
   });
 
@@ -87,9 +92,29 @@ export async function POST(request: Request) {
     ?? result.output?.flatMap((item) => item.content ?? []).find((item) => item.type === "output_text")?.text
     ?? "";
   try {
-    const parsed = JSON.parse(outputText) as { threads?: unknown[] };
+    const parsed = JSON.parse(outputText) as { threads?: Array<Record<string, unknown>> };
     if (!Array.isArray(parsed.threads)) throw new Error("Missing threads array");
-    return Response.json(parsed);
+    const allowedIds = new Set([
+      ...images.map((item) => item.id),
+      ...texts.map((item) => item.id),
+      ...audios.map((item) => item.id),
+    ]);
+    const threads = parsed.threads.flatMap((thread, index) => {
+      const fragmentIds = Array.from(new Set(
+        (Array.isArray(thread.fragmentIds) ? thread.fragmentIds : [])
+          .filter((id): id is string => typeof id === "string" && allowedIds.has(id)),
+      ));
+      if (fragmentIds.length < 2) return [];
+      const title = typeof thread.title === "string" ? thread.title : `Living Thread ${index + 1}`;
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 42) || "thread";
+      return [{
+        ...thread,
+        id: `${slug}-${index + 1}`,
+        title,
+        fragmentIds,
+      }];
+    });
+    return Response.json({ threads });
   } catch {
     return Response.json({ error: "Drawer received an incomplete analysis" }, { status: 502 });
   }

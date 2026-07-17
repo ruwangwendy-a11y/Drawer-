@@ -20,7 +20,7 @@ type AiThread = {
   feedback?: "accepted" | "rejected";
 };
 type RejectedInsight = { title: string; summary: string };
-const ANALYSIS_VERSION = 3;
+const ANALYSIS_VERSION = 4;
 
 const fragmentHomes: Record<string, Point> = {
   corridor: { x: 278, y: 280 },
@@ -688,8 +688,8 @@ export default function Home() {
         body: JSON.stringify({
           roomName: currentRoom.name,
           images: [
-            ...(currentRoom.isSample ? fragments.filter((item) => !hiddenIds.includes(item.id)).map(({ id, src, date }) => ({ id, src, date })) : []),
-            ...roomImages.filter((item) => !hiddenIds.includes(item.id)).map(({ id, src, date }) => ({ id, src, date })),
+            ...(currentRoom.isSample ? fragments.filter((item) => !hiddenIds.includes(item.id)).map(({ id, src, date, alt }) => ({ id, src, date, label: alt })) : []),
+            ...roomImages.filter((item) => !hiddenIds.includes(item.id)).map(({ id, src, date, name }) => ({ id, src, date, label: name })),
           ],
           texts: [
             ...(currentRoom.isSample ? memoryItems.map((item, index) => ({ id: `memory-${index}`, text: item.text, date: item.date })) : []),
