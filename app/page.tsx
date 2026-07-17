@@ -614,26 +614,13 @@ export default function Home() {
     // Anchor each Thread to the center of its own evidence cluster. The old
     // max-X rule pushed any Thread containing one distant image to the lower
     // right edge, separating both its button and explanation from the work.
-    const sortedX = visualPoints.map((point) => point.x).sort((a, b) => a - b);
-    const sortedY = visualPoints.map((point) => point.y).sort((a, b) => a - b);
-    const middle = Math.floor(visualPoints.length / 2);
-    const medianX = visualPoints.length % 2 ? sortedX[middle] : (sortedX[middle - 1] + sortedX[middle]) / 2;
-    const medianY = visualPoints.length % 2 ? sortedY[middle] : (sortedY[middle - 1] + sortedY[middle]) / 2;
-    const minX = Math.min(...visualPoints.map((point) => point.x));
-    const maxX = Math.max(...visualPoints.map((point) => point.x));
-    const minY = Math.min(...visualPoints.map((point) => point.y));
-    const maxY = Math.max(...visualPoints.map((point) => point.y));
-    const candidates = [
-      { x: medianX - 120, y: minY - 155 - (threadIndex % 2) * 70 },
-      { x: maxX + 105, y: medianY - 34 + (threadIndex % 3 - 1) * 76 },
-      { x: medianX - 120, y: maxY + 100 + (threadIndex % 2) * 70 },
-      { x: minX - 365, y: medianY - 34 + (threadIndex % 3 - 1) * 76 },
-      { x: 250 + (threadIndex % 4) * 720, y: 88 + Math.floor(threadIndex / 4) * 82 },
-    ].map((point) => ({
-      x: Math.max(55, Math.min(ROOM_WIDTH - 310, point.x)),
-      y: Math.max(82, Math.min(roomHeight - 130, point.y)),
-    }));
-    return candidates.find((candidate) => canvasAreaIsFree(candidate, 260, 64)) ?? candidates[candidates.length - 1];
+    // A quiet shelf keeps generated Threads legible before the canvas DOM has
+    // measured its images. Evidence remains spatially clear through the blue
+    // connectors that appear only after a Thread is opened.
+    return {
+      x: 245 + (threadIndex % 4) * 720,
+      y: 82 + Math.floor(threadIndex / 4) * 78,
+    };
   }
 
   function actualThreadHome(thread: AiThread, threadIndex: number): Point {
