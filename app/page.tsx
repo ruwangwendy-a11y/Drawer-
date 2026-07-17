@@ -464,7 +464,7 @@ export default function Home() {
       target,
       moved: false,
     };
-    setSelectedId(id);
+    if (!id.startsWith("ai-thread-")) setSelectedId(id);
     setDraggingId(id);
   }
 
@@ -553,14 +553,13 @@ export default function Home() {
       return;
     }
     if (!activeAiThreadId) viewportBeforeThread.current = { left: canvas.scrollLeft, top: canvas.scrollTop };
+    setSelectedId(null);
     setActiveAiThreadId(thread.id);
-    const points = thread.fragmentIds.map(sourceHome).filter((point): point is Point => Boolean(point));
     const threadIndex = Math.max(0, visibleAiThreads.findIndex((item) => item.id === thread.id));
     const actualThread = actualThreadHome(thread, threadIndex);
     const card = threadCardHome(actualThread);
-    const focusPoints = [...points, actualThread, { x: card.x + 235, y: card.y + 240 }];
-    const centerX = focusPoints.reduce((sum, point) => sum + point.x, 0) / focusPoints.length;
-    const centerY = focusPoints.reduce((sum, point) => sum + point.y, 0) / focusPoints.length;
+    const centerX = card.x + 235;
+    const centerY = card.y + 305;
     window.requestAnimationFrame(() => {
       canvas.scrollTo({
         left: Math.max(0, centerX * zoom - canvas.clientWidth / 2),
