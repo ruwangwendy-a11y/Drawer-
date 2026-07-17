@@ -179,6 +179,7 @@ export default function Home() {
   const [recordingError, setRecordingError] = useState("");
   const [aiThreads, setAiThreads] = useState<Record<string, AiThread[]>>({});
   const [activeAiThreadId, setActiveAiThreadId] = useState<string | null>(null);
+  const [hoveredAiThreadId, setHoveredAiThreadId] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
   const [analysisSnapshots, setAnalysisSnapshots] = useState<Record<string, string>>({});
@@ -472,11 +473,37 @@ export default function Home() {
     return null;
   }
 
+  function threadHome(thread: AiThread, threadIndex: number): Point {
+    const threadId = `ai-thread-${thread.id}`;
+    const savedOffset = positions[threadId];
+    if (savedOffset && Math.hypot(savedOffset.x, savedOffset.y) > 15) {
+      return { x: 1650 + threadIndex * 330, y: 920 };
+    }
+    const visualPoints = thread.fragmentIds
+      .map((id) => {
+        const home = visualHome(id);
+        if (!home) return null;
+        const offset = positions[id] ?? { x: 0, y: 0 };
+        return { x: home.x + offset.x, y: home.y + offset.y };
+      })
+      .filter((point): point is Point => Boolean(point));
+    if (!visualPoints.length) return { x: 1650 + threadIndex * 330, y: 920 };
+    const minX = Math.min(...visualPoints.map((point) => point.x));
+    const maxX = Math.max(...visualPoints.map((point) => point.x));
+    const centerY = visualPoints.reduce((sum, point) => sum + point.y, 0) / visualPoints.length;
+    const roomOnRight = maxX + 330 < ROOM_WIDTH;
+    return {
+      x: Math.max(70, Math.min(ROOM_WIDTH - 310, roomOnRight ? maxX + 90 : minX - 300)),
+      y: Math.max(110, Math.min(ROOM_HEIGHT - 130, centerY - 35 + threadIndex * 70)),
+    };
+  }
+
   function aiConnectorStyle(thread: AiThread, threadIndex: number, targetId: string) {
     const threadId = `ai-thread-${thread.id}`;
     const threadOffset = positions[threadId] ?? { x: 0, y: 0 };
     const targetOffset = positions[targetId] ?? { x: 0, y: 0 };
-    const from = { x: 1765 + threadIndex * 330 + threadOffset.x, y: 950 + threadOffset.y };
+    const home = threadHome(thread, threadIndex);
+    const from = { x: home.x + 120 + threadOffset.x, y: home.y + 30 + threadOffset.y };
     const target = visualHome(targetId);
     if (!target) return { display: "none" };
     const to = { x: target.x + targetOffset.x, y: target.y + targetOffset.y };
@@ -498,7 +525,8 @@ export default function Home() {
   }
 
   function aiFocusClass(id: string) {
-    if (!activeAiThread) return "";
+    const hoveredThread = visibleAiThreads.find((thread) => thread.id === hoveredAiThreadId);
+    if (!activeAiThread) return hoveredThread?.fragmentIds.includes(id) ? " is-ai-preview" : "";
     return activeAiThread.fragmentIds.includes(id) ? " is-ai-related" : " is-ai-muted";
   }
 
@@ -1019,10 +1047,13 @@ export default function Home() {
                   : null)}
 
                 {visibleAiThreads.map((thread, index) => (
+                  (() => {
+                  const home = threadHome(thread, index);
+                  return (
                   <button
                     key={`ai-${thread.id}`}
                     className={`living-thread living-thread--generated${activeAiThreadId === thread.id ? " is-open" : ""}${activeAiThread && activeAiThreadId !== thread.id ? " is-ai-muted" : ""}`}
-                    style={{ left: `${1650 + index * 330}px`, top: "920px", transform: itemTransform(`ai-thread-${thread.id}`) }}
+                    style={{ left: `${home.x}px`, top: `${home.y}px`, transform: itemTransform(`ai-thread-${thread.id}`) }}
                     onClick={() => {
                       const dragId = `ai-thread-${thread.id}`;
                       if (suppressClick.current === dragId) return;
@@ -1032,10 +1063,14 @@ export default function Home() {
                     onPointerMove={moveFragment}
                     onPointerUp={(event) => endMove(event, `ai-thread-${thread.id}`)}
                     onPointerCancel={(event) => endMove(event, `ai-thread-${thread.id}`)}
+                    onMouseEnter={() => setHoveredAiThreadId(thread.id)}
+                    onMouseLeave={() => setHoveredAiThreadId(null)}
                   >
                     <span className="thread-pulse" />
                     <span><strong>{thread.title}</strong><small>{thread.fragmentIds.length} connected fragments · GPT-5.6</small></span>
                   </button>
+                  );
+                  })()
                 ))}
 
                 {activeAiThread && (
