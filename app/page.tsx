@@ -27,6 +27,7 @@ type AiThread = {
 };
 type RejectedInsight = { title: string; summary: string };
 const ANALYSIS_VERSION = 5;
+const THREAD_LAYOUT_VERSION = 2;
 
 const fragmentHomes: Record<string, Point> = {
   corridor: { x: 278, y: 280 },
@@ -247,7 +248,10 @@ export default function Home() {
           setAnalysisSnapshots(state.analysisSnapshots ?? {});
           setRejectedInsights(state.rejectedInsights ?? {});
           setMemoryItems(state.memoryItems ?? memoryNotes);
-          setPositions(state.positions ?? {});
+          const restoredPositions = state.positions ?? {};
+          setPositions(state.threadLayoutVersion === THREAD_LAYOUT_VERSION
+            ? restoredPositions
+            : Object.fromEntries(Object.entries(restoredPositions).filter(([id]) => !id.startsWith("ai-thread-"))));
           setScales(state.scales ?? {});
           setHiddenIds(state.hiddenIds ?? []);
           setRooms(state.rooms?.length ? state.rooms : [{ id: "sample", name: "Sample room", isSample: true }]);
@@ -264,7 +268,7 @@ export default function Home() {
       fetch("/api/state", {
         method: "PUT",
         headers: { "content-type": "application/json", "x-drawer-device": deviceId },
-        body: JSON.stringify({ capturedImages, capturedTexts, capturedAudios, aiThreads, analysisSnapshots, rejectedInsights, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId }),
+        body: JSON.stringify({ capturedImages, capturedTexts, capturedAudios, aiThreads, analysisSnapshots, rejectedInsights, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId, threadLayoutVersion: THREAD_LAYOUT_VERSION }),
       }).catch(() => undefined);
     }, 650);
     return () => window.clearTimeout(timer);
@@ -541,11 +545,6 @@ export default function Home() {
   }
 
   function threadHome(thread: AiThread, threadIndex: number): Point {
-    const threadId = `ai-thread-${thread.id}`;
-    const savedOffset = positions[threadId];
-    if (savedOffset && Math.hypot(savedOffset.x, savedOffset.y) > 15) {
-      return { x: 1650 + threadIndex * 330, y: 920 };
-    }
     const visualPoints = thread.fragmentIds
       .map((id) => {
         const home = visualHome(id);
@@ -555,13 +554,19 @@ export default function Home() {
       })
       .filter((point): point is Point => Boolean(point));
     if (!visualPoints.length) return { x: 1650 + threadIndex * 330, y: 920 };
-    const minX = Math.min(...visualPoints.map((point) => point.x));
-    const maxX = Math.max(...visualPoints.map((point) => point.x));
-    const centerY = visualPoints.reduce((sum, point) => sum + point.y, 0) / visualPoints.length;
-    const roomOnRight = maxX + 330 < ROOM_WIDTH;
+    // Anchor each Thread to the center of its own evidence cluster. The old
+    // max-X rule pushed any Thread containing one distant image to the lower
+    // right edge, separating both its button and explanation from the work.
+    const sortedX = visualPoints.map((point) => point.x).sort((a, b) => a - b);
+    const sortedY = visualPoints.map((point) => point.y).sort((a, b) => a - b);
+    const middle = Math.floor(visualPoints.length / 2);
+    const medianX = visualPoints.length % 2 ? sortedX[middle] : (sortedX[middle - 1] + sortedX[middle]) / 2;
+    const medianY = visualPoints.length % 2 ? sortedY[middle] : (sortedY[middle - 1] + sortedY[middle]) / 2;
+    const fanX = (threadIndex % 2) * 35;
+    const fanY = (threadIndex % 3 - 1) * 72;
     return {
-      x: Math.max(70, Math.min(ROOM_WIDTH - 310, roomOnRight ? maxX + 90 : minX - 300)),
-      y: Math.max(110, Math.min(ROOM_HEIGHT - 130, centerY - 35 + threadIndex * 70)),
+      x: Math.max(70, Math.min(ROOM_WIDTH - 310, medianX + 115 + fanX)),
+      y: Math.max(110, Math.min(ROOM_HEIGHT - 130, medianY - 115 + fanY)),
     };
   }
 
