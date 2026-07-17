@@ -634,15 +634,20 @@ export default function Home() {
     const withoutCurrentRoom = <T,>(record: Record<string, T>) => Object.fromEntries(
       Object.entries(record).filter(([roomId]) => roomId !== currentRoomId),
     ) as Record<string, T>;
-    setAiThreads((current) => withoutCurrentRoom(current));
-    setAnalysisSnapshots((current) => withoutCurrentRoom(current));
-    setRejectedInsights((current) => withoutCurrentRoom(current));
-    setPositions((current) => Object.fromEntries(
-      Object.entries(current).filter(([id]) => !roomItemIds.has(id)),
-    ));
-    setScales((current) => Object.fromEntries(
-      Object.entries(current).filter(([id]) => !roomItemIds.has(id)),
-    ));
+    const nextAiThreads = withoutCurrentRoom(aiThreads);
+    const nextAnalysisSnapshots = withoutCurrentRoom(analysisSnapshots);
+    const nextRejectedInsights = withoutCurrentRoom(rejectedInsights);
+    const nextPositions = Object.fromEntries(
+      Object.entries(positions).filter(([id]) => !roomItemIds.has(id)),
+    );
+    const nextScales = Object.fromEntries(
+      Object.entries(scales).filter(([id]) => !roomItemIds.has(id)),
+    );
+    setAiThreads(nextAiThreads);
+    setAnalysisSnapshots(nextAnalysisSnapshots);
+    setRejectedInsights(nextRejectedInsights);
+    setPositions(nextPositions);
+    setScales(nextScales);
     setActiveAiThreadId(null);
     setHoveredAiThreadId(null);
     setSelectedId(null);
@@ -650,6 +655,28 @@ export default function Home() {
     setRelationSignal("Analysis cleared. Your original fragments are ready for a fresh demo.");
     window.setTimeout(() => setRelationSignal(null), 3600);
     roomCanvasRef.current?.scrollTo({ left: 0, top: 0, behavior: "smooth" });
+    if (deviceId) {
+      fetch("/api/state", {
+        method: "PUT",
+        headers: { "content-type": "application/json", "x-drawer-device": deviceId },
+        body: JSON.stringify({
+          capturedImages,
+          capturedTexts,
+          capturedAudios,
+          aiThreads: nextAiThreads,
+          analysisSnapshots: nextAnalysisSnapshots,
+          rejectedInsights: nextRejectedInsights,
+          memoryItems,
+          positions: nextPositions,
+          scales: nextScales,
+          hiddenIds,
+          rooms,
+          currentRoomId,
+          defaultRoomId,
+          threadLayoutVersion: THREAD_LAYOUT_VERSION,
+        }),
+      }).catch(() => setRelationSignal("The analysis cleared here, but Drawer could not save that change yet."));
+    }
   }
 
   function stepThread(direction: -1 | 1) {
