@@ -192,6 +192,7 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--moss); o
 .dynamic-connector::after { right: -2px; }
 .living-thread { position: absolute; z-index: 7; left: 1010px; top: 780px; border: 0; background: transparent; display: flex; align-items: center; gap: 11px; text-align: left; cursor: pointer; }
 .living-thread--generated { min-width: 240px; padding: 12px 14px; border: 1px solid rgba(111,120,99,.28); background: rgba(244,243,239,.78); backdrop-filter: blur(12px); }
+.living-thread--generated.is-open { border-color: rgba(111,120,99,.72); background: rgba(244,243,239,.96); box-shadow: 0 14px 38px rgba(86,96,75,.14); }
 .living-thread--generated:active { cursor: grabbing; }
 .ai-thread-connector { position: absolute; z-index: 2; height: 0; border-top: 1px dashed rgba(111,120,99,.55); transform-origin: left center; pointer-events: none; transition: opacity .2s ease; }
 .ai-thread-connector::before, .ai-thread-connector::after { content: ""; position: absolute; top: -3px; width: 5px; height: 5px; border-radius: 50%; background: var(--moss); }

@@ -186,6 +186,8 @@ export default function Home() {
   const [rejectedInsights, setRejectedInsights] = useState<Record<string, RejectedInsight[]>>({});
   const [lastRejected, setLastRejected] = useState<{ roomId: string; threadId: string; insight: RejectedInsight; previousSnapshot: string } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const roomCanvasRef = useRef<HTMLDivElement>(null);
+  const viewportBeforeThread = useRef<{ left: number; top: number } | null>(null);
   const dragState = useRef<{ id: string; startX: number; startY: number; origin: Point; target: HTMLElement; moved: boolean } | null>(null);
   const suppressClick = useRef<string | null>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
@@ -212,7 +214,7 @@ export default function Home() {
   useEffect(() => {
     if (!activeAiThreadId) return;
     const showEverythingOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setActiveAiThreadId(null);
+      if (event.key === "Escape") closeThreadFocus();
     };
     window.addEventListener("keydown", showEverythingOnEscape);
     return () => window.removeEventListener("keydown", showEverythingOnEscape);
@@ -473,6 +475,57 @@ export default function Home() {
     return null;
   }
 
+  function sourceHome(targetId: string): Point | null {
+    const visual = visualHome(targetId);
+    if (visual) return visual;
+    if (targetId.startsWith("memory-")) {
+      const index = Number(targetId.split("-")[1]);
+      return memoryHomes[index] ?? null;
+    }
+    const textIndex = roomTexts.findIndex((item) => item.id === targetId);
+    if (textIndex >= 0) return { x: 465 + (textIndex % 3) * 300, y: 445 + (textIndex % 2) * 190 };
+    const audioIndex = roomAudios.findIndex((item) => item.id === targetId);
+    if (audioIndex >= 0) return { x: 890 + (audioIndex % 3) * 310, y: 610 + (audioIndex % 2) * 230 };
+    return null;
+  }
+
+  function openThreadFocus(thread: AiThread) {
+    const canvas = roomCanvasRef.current;
+    if (!canvas) {
+      setActiveAiThreadId(thread.id);
+      return;
+    }
+    if (activeAiThreadId === thread.id) {
+      closeThreadFocus();
+      return;
+    }
+    if (!activeAiThreadId) viewportBeforeThread.current = { left: canvas.scrollLeft, top: canvas.scrollTop };
+    setActiveAiThreadId(thread.id);
+    const points = thread.fragmentIds.map(sourceHome).filter((point): point is Point => Boolean(point));
+    if (!points.length) return;
+    const threadIndex = Math.max(0, visibleAiThreads.findIndex((item) => item.id === thread.id));
+    const focusPoints = [...points, threadHome(thread, threadIndex)];
+    const centerX = focusPoints.reduce((sum, point) => sum + point.x, 0) / focusPoints.length;
+    const centerY = focusPoints.reduce((sum, point) => sum + point.y, 0) / focusPoints.length;
+    window.requestAnimationFrame(() => {
+      canvas.scrollTo({
+        left: Math.max(0, centerX * zoom - canvas.clientWidth / 2),
+        top: Math.max(0, centerY * zoom - canvas.clientHeight / 2),
+        behavior: "smooth",
+      });
+    });
+  }
+
+  function closeThreadFocus() {
+    setActiveAiThreadId(null);
+    const canvas = roomCanvasRef.current;
+    const previous = viewportBeforeThread.current;
+    if (canvas && previous) {
+      window.requestAnimationFrame(() => canvas.scrollTo({ left: previous.left, top: previous.top, behavior: "smooth" }));
+    }
+    viewportBeforeThread.current = null;
+  }
+
   function threadHome(thread: AiThread, threadIndex: number): Point {
     const threadId = `ai-thread-${thread.id}`;
     const savedOffset = positions[threadId];
@@ -599,7 +652,7 @@ export default function Home() {
     if (analyzing) return;
     setAnalyzing(true);
     setAnalysisError("");
-    setActiveAiThreadId(null);
+    closeThreadFocus();
     setThreadState("idle");
     try {
       const response = await fetch("/api/analyze", {
@@ -651,7 +704,7 @@ export default function Home() {
     setRejectedInsights((current) => ({ ...current, [currentRoomId]: [...(current[currentRoomId] ?? []), insight] }));
     setLastRejected({ roomId: currentRoomId, threadId: thread.id, insight, previousSnapshot: analysisSnapshots[currentRoomId] ?? "" });
     setAnalysisSnapshots((current) => ({ ...current, [currentRoomId]: "" }));
-    setActiveAiThreadId(null);
+    closeThreadFocus();
   }
 
   function undoReject() {
@@ -692,6 +745,8 @@ export default function Home() {
   const currentAiThreads = aiThreads[currentRoomId] ?? [];
   const visibleAiThreads = currentAiThreads.filter((thread) => thread.feedback !== "rejected");
   const activeAiThread = visibleAiThreads.find((thread) => thread.id === activeAiThreadId) ?? null;
+  const activeAiThreadIndex = activeAiThread ? visibleAiThreads.findIndex((thread) => thread.id === activeAiThread.id) : -1;
+  const activeThreadHome = activeAiThread ? threadHome(activeAiThread, Math.max(0, activeAiThreadIndex)) : null;
   const currentSourceIds = new Set([
     ...(currentRoom.isSample ? fragments.map((item) => item.id) : []),
     ...(currentRoom.isSample ? memoryItems.map((_, index) => `memory-${index}`) : []),
@@ -870,7 +925,7 @@ export default function Home() {
                 <span aria-hidden="true">◎</span> {analyzing ? "Noticing…" : shouldSeekDifferentConnection ? "Look for a different connection" : roomChangedSinceAnalysis ? "Room changed · Look again" : hasAnalyzedRoom ? "Threads are up to date" : "Discover threads"}
               </button>
               {activeAiThread && (
-                <button className="tool-button tool-button--show-all" onClick={() => setActiveAiThreadId(null)}>
+                <button className="tool-button tool-button--show-all" onClick={closeThreadFocus}>
                   <span aria-hidden="true">×</span> Show all
                 </button>
               )}
@@ -880,7 +935,7 @@ export default function Home() {
           </div>
 
           <div className="room-layout">
-            <div className={roomClass}>
+            <div ref={roomCanvasRef} className={roomClass}>
               <div className="zoom-controls" aria-label="Canvas zoom controls">
                 <button onClick={() => setZoom((value) => Math.max(.45, Number((value - .1).toFixed(2))))} aria-label="Zoom out">−</button>
                 <button className="zoom-value" onClick={() => setZoom(1)} aria-label="Reset zoom">{Math.round(zoom * 100)}%</button>
@@ -1053,11 +1108,12 @@ export default function Home() {
                   <button
                     key={`ai-${thread.id}`}
                     className={`living-thread living-thread--generated${activeAiThreadId === thread.id ? " is-open" : ""}${activeAiThread && activeAiThreadId !== thread.id ? " is-ai-muted" : ""}`}
+                    aria-expanded={activeAiThreadId === thread.id}
                     style={{ left: `${home.x}px`, top: `${home.y}px`, transform: itemTransform(`ai-thread-${thread.id}`) }}
                     onClick={() => {
                       const dragId = `ai-thread-${thread.id}`;
                       if (suppressClick.current === dragId) return;
-                      setActiveAiThreadId(activeAiThreadId === thread.id ? null : thread.id);
+                      openThreadFocus(thread);
                     }}
                     onPointerDown={(event) => startMove(event, `ai-thread-${thread.id}`)}
                     onPointerMove={moveFragment}
@@ -1074,10 +1130,10 @@ export default function Home() {
                 ))}
 
                 {activeAiThread && (
-                  <aside className="thread-card thread-card--generated">
+                  <aside className="thread-card thread-card--generated" style={activeThreadHome ? { left: `${Math.min(ROOM_WIDTH - 520, activeThreadHome.x + 20)}px`, top: `${Math.min(ROOM_HEIGHT - 520, activeThreadHome.y + 70)}px` } : undefined}>
                     <div className="thread-card-heading">
                       <p>Living Thread · GPT-5.6</p>
-                      <button onClick={() => setActiveAiThreadId(null)} aria-label="Close thread">×</button>
+                      <button onClick={closeThreadFocus} aria-label="Close thread">×</button>
                     </div>
                     <h2>{activeAiThread.title}</h2>
                     <p className="thread-summary">{activeAiThread.summary}</p>
