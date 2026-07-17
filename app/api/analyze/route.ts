@@ -8,6 +8,25 @@ type RoomMaterial = {
   rejectedThreads?: Array<{ title: string; summary: string }>;
 };
 
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function readableImageUrl(src: string, origin: string) {
+  const resolved = new URL(src, origin);
+  if (resolved.hostname !== "localhost" && resolved.hostname !== "127.0.0.1") return resolved.toString();
+  const imageResponse = await fetch(resolved);
+  if (!imageResponse.ok) throw new Error(`Could not read ${src}`);
+  const mime = imageResponse.headers.get("content-type")?.split(";")[0] || "image/jpeg";
+  const bytes = new Uint8Array(await imageResponse.arrayBuffer());
+  return `data:${mime};base64,${bytesToBase64(bytes)}`;
+}
+
 const threadSchema = {
   type: "object",
   additionalProperties: false,
@@ -76,7 +95,7 @@ export async function POST(request: Request) {
     text: `ROOM: ${material.roomName ?? "Untitled room"}\nTOTAL MATERIAL: ${images.length} images, ${texts.length} text notes, ${audios.length} voice transcripts. Each image below is immediately preceded by its authoritative fragment ID. Never attach an image's content to a different ID.`,
   }];
   for (const image of images) {
-    const imageUrl = new URL(image.src, origin).toString();
+    const imageUrl = await readableImageUrl(image.src, origin);
     content.push({ type: "input_text", text: `IMAGE FRAGMENT ID: ${image.id}\nDATE: ${image.date ?? "Unknown"}\nLABEL: ${image.label ?? "Untitled image"}` });
     content.push({ type: "input_image", image_url: imageUrl, detail: "auto" });
   }

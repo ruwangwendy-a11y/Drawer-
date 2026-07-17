@@ -180,6 +180,26 @@ const memoryNotes = [
 const ROOM_WIDTH = 3200;
 const ROOM_HEIGHT = 2200;
 
+const fiveDayStudyImages = [
+  { src: "/sample-reflection-1846.jpg", name: "Repeated signs in glass", date: "Day 1 · July 12", width: 1645, height: 1097 },
+  { src: "/sample-reflection-1847.jpg", name: "Branches held by a facade", date: "Day 1 · July 12", width: 1920, height: 1280 },
+  { src: "/sample-reflection-1848.jpg", name: "An empty audience behind glass", date: "Day 2 · July 13", width: 1920, height: 1280 },
+  { src: "/sample-shadow-reflection.jpg", name: "A shadow crossing the surface", date: "Day 2 · July 13", width: 1200, height: 1600 },
+  { src: "/fragment-UN7-iS_79oE.jpg", name: "Figures passing through a corridor", date: "Day 3 · July 14", width: 1200, height: 1600 },
+  { src: "/fragment-f31YwqhKrug.jpg", name: "A platform that doubles itself", date: "Day 3 · July 14", width: 1600, height: 1067 },
+  { src: "/sample-rain-window.jpg", name: "Rain makes the window visible", date: "Day 4 · July 15", width: 1600, height: 1067 },
+  { src: "/sample-reflection-1870.jpg", name: "The street and viewer occupy one plane", date: "Day 4 · July 15", width: 1920, height: 1280 },
+  { src: "/sample-reflection-1849.jpg", name: "A sign becomes a figure", date: "Day 5 · July 16", width: 1920, height: 1280 },
+];
+
+const fiveDayStudyNotes = [
+  { text: "The surface keeps interrupting what I thought I was looking at.", date: "Day 1 · passing thought" },
+  { text: "An empty interior can still feel watched.", date: "Day 2 · voice remembered" },
+  { text: "People appear briefly; the architecture remains.", date: "Day 3 · unfinished sentence" },
+  { text: "Maybe reflection is less about mirrors and more about two times sharing one image.", date: "Day 4 · studio note" },
+  { text: "Yellow keeps behaving like a small instruction inside all this blue.", date: "Day 5 · color note" },
+];
+
 export default function Home() {
   const [view, setView] = useState<View>("landing");
   const [threadState, setThreadState] = useState<ThreadState>("idle");
@@ -207,6 +227,9 @@ export default function Home() {
   const [editValue, setEditValue] = useState("");
   const [rooms, setRooms] = useState([{ id: "sample", name: "Sample room", isSample: true }]);
   const [currentRoomId, setCurrentRoomId] = useState("sample");
+  const [defaultRoomId, setDefaultRoomId] = useState("sample");
+  const [captureRoomId, setCaptureRoomId] = useState("sample");
+  const [curating, setCurating] = useState(false);
   const [renamingRoom, setRenamingRoom] = useState(false);
   const [roomNameDraft, setRoomNameDraft] = useState("");
   const [deviceId, setDeviceId] = useState("");
@@ -299,6 +322,8 @@ export default function Home() {
           setHiddenIds(state.hiddenIds ?? []);
           setRooms(state.rooms?.length ? state.rooms : [{ id: "sample", name: "Sample room", isSample: true }]);
           setCurrentRoomId(state.currentRoomId ?? "sample");
+          setDefaultRoomId(state.defaultRoomId ?? state.currentRoomId ?? "sample");
+          setCaptureRoomId(state.defaultRoomId ?? state.currentRoomId ?? "sample");
         }
       })
       .catch(() => setRelationSignal("Drawer could not restore saved fragments. New work will still stay in this session."))
@@ -311,16 +336,25 @@ export default function Home() {
       fetch("/api/state", {
         method: "PUT",
         headers: { "content-type": "application/json", "x-drawer-device": deviceId },
-        body: JSON.stringify({ capturedImages, capturedTexts, capturedAudios, aiThreads, analysisSnapshots, rejectedInsights, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId, threadLayoutVersion: THREAD_LAYOUT_VERSION }),
+        body: JSON.stringify({ capturedImages, capturedTexts, capturedAudios, aiThreads, analysisSnapshots, rejectedInsights, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId, defaultRoomId, threadLayoutVersion: THREAD_LAYOUT_VERSION }),
       }).catch(() => undefined);
     }, 650);
     return () => window.clearTimeout(timer);
-  }, [hydrated, deviceId, capturedImages, capturedTexts, capturedAudios, aiThreads, analysisSnapshots, rejectedInsights, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId]);
+  }, [hydrated, deviceId, capturedImages, capturedTexts, capturedAudios, aiThreads, analysisSnapshots, rejectedInsights, memoryItems, positions, scales, hiddenIds, rooms, currentRoomId, defaultRoomId]);
+
+  useEffect(() => {
+    if (view === "drawer") setCaptureRoomId(defaultRoomId);
+  }, [view, defaultRoomId]);
 
   useEffect(() => () => {
     if (recordingTimer.current) window.clearInterval(recordingTimer.current);
     mediaRecorder.current?.stream.getTracks().forEach((track) => track.stop());
   }, []);
+
+  useEffect(() => {
+    if (view !== "room" || !roomCanvasRef.current) return;
+    window.requestAnimationFrame(() => roomCanvasRef.current?.scrollTo({ left: 0, top: 0 }));
+  }, [view, currentRoomId]);
 
   function readFiles(files: FileList | File[]) {
     [...files].filter((file) => file.type.startsWith("image/")).slice(0, 6).forEach((file) => {
@@ -414,7 +448,7 @@ export default function Home() {
       const uploadedImages = await Promise.all(pendingImages.map(async (image) => {
         const blob = await (await fetch(image.src)).blob();
         const src = await uploadAsset(blob, image.name);
-        return { ...image, src, note: "", roomId: currentRoomId };
+        return { ...image, src, note: "", roomId: captureRoomId };
       }));
       setCapturedImages((current) => [...current, ...uploadedImages]);
       if (draft.trim()) {
@@ -422,7 +456,7 @@ export default function Home() {
           id: `text-${Date.now()}`,
           text: draft.trim(),
           date: "Just now · text note",
-          roomId: currentRoomId,
+          roomId: captureRoomId,
         }]);
       }
       if (recordedAudio) {
@@ -436,7 +470,7 @@ export default function Home() {
           // The original recording remains useful even when transcription is unavailable.
         }
         const src = await uploadAsset(recordedAudio.blob, `voice-${Date.now()}.webm`);
-        setCapturedAudios((current) => [...current, { id: `audio-${Date.now()}`, src, date: "Just now · voice note", duration: recordedAudio.duration, roomId: currentRoomId, transcript }]);
+        setCapturedAudios((current) => [...current, { id: `audio-${Date.now()}`, src, date: "Just now · voice note", duration: recordedAudio.duration, roomId: captureRoomId, transcript }]);
       }
       setSaved(true);
       window.setTimeout(() => {
@@ -444,6 +478,7 @@ export default function Home() {
         setPendingImages([]);
         setDraft("");
         discardRecording();
+        setCurrentRoomId(captureRoomId);
         setView("room");
       }, 700);
     } catch {
@@ -609,16 +644,19 @@ export default function Home() {
     const visualPoints = thread.fragmentIds
       .map((id) => visualHome(id))
       .filter((point): point is Point => Boolean(point));
-    if (!visualPoints.length) return { x: 1650 + threadIndex * 330, y: 920 };
+    if (!visualPoints.length) return {
+      x: 360 + (threadIndex % 3) * 340,
+      y: 26 + Math.floor(threadIndex / 3) * 60,
+    };
     // Anchor each Thread to the center of its own evidence cluster. The old
     // max-X rule pushed any Thread containing one distant image to the lower
     // right edge, separating both its button and explanation from the work.
-    // A quiet shelf keeps generated Threads legible before the canvas DOM has
-    // measured its images. Evidence remains spatially clear through the blue
-    // connectors that appear only after a Thread is opened.
+    // A compact curatorial shelf keeps every generated Thread visible at the
+    // entrance to the canvas. The works retain their gallery layout below;
+    // evidence becomes spatially explicit only after a Thread is opened.
     return {
-      x: 245 + (threadIndex % 4) * 720,
-      y: 82 + Math.floor(threadIndex / 4) * 78,
+      x: 360 + (threadIndex % 3) * 340,
+      y: 26 + Math.floor(threadIndex / 3) * 60,
     };
   }
 
@@ -725,6 +763,154 @@ export default function Home() {
     setCurrentRoomId(room.id);
     setSelectedId(null);
     setView("room");
+  }
+
+  function setCurrentAsDefaultRoom() {
+    setDefaultRoomId(currentRoomId);
+    setCaptureRoomId(currentRoomId);
+    setRelationSignal(`${currentRoom.name} is now your default drawer.`);
+    window.setTimeout(() => setRelationSignal(null), 2600);
+  }
+
+  function seedFiveDayStudy() {
+    if (currentRoom.isSample || roomImages.some((image) => image.id.startsWith("five-day-"))) return;
+    setCapturedImages((current) => [
+      ...current,
+      ...fiveDayStudyImages.map((image, index) => ({
+        ...image,
+        id: `five-day-image-${index + 1}`,
+        note: "",
+        roomId: currentRoomId,
+      })),
+    ]);
+    setCapturedTexts((current) => [
+      ...current,
+      ...fiveDayStudyNotes.map((note, index) => ({
+        ...note,
+        id: `five-day-text-${index + 1}`,
+        roomId: currentRoomId,
+      })),
+    ]);
+    setRelationSignal("Five days of fragments were placed in this room—still uncurated.");
+    window.setTimeout(() => setRelationSignal(null), 3000);
+  }
+
+  async function curateRoom() {
+    if (curating || currentRoom.isSample || !roomImages.length) return;
+    setCurating(true);
+    setSelectedId(null);
+    setActiveAiThreadId(null);
+    setShowGrid(false);
+    setRelationSignal("Drawer is reading the room like a gallery…");
+
+    let curationThreads: AiThread[] = [];
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          roomName: currentRoom.name,
+          images: roomImages.filter((item) => !hiddenIds.includes(item.id)).map(({ id, src, date, name }) => ({ id, src, date, label: name })),
+          texts: roomTexts.filter((item) => !hiddenIds.includes(item.id)).map(({ id, text, date }) => ({ id, text, date })),
+          audios: roomAudios.filter((item) => !hiddenIds.includes(item.id) && item.transcript).map(({ id, transcript, date }) => ({ id, transcript, date })),
+          rejectedThreads: rejectedInsights[currentRoomId] ?? [],
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "AI curation was unavailable");
+      curationThreads = (result.threads ?? []) as AiThread[];
+      if (curationThreads.length) {
+        setAiThreads((current) => ({ ...current, [currentRoomId]: curationThreads }));
+        setAnalysisSnapshots((current) => ({ ...current, [currentRoomId]: currentRoomSignature }));
+      }
+    } catch {
+      // The stable gallery pass remains available if analysis is temporarily unavailable.
+    }
+
+    window.setTimeout(() => {
+      const stage = roomCanvasRef.current?.querySelector<HTMLElement>(".room-stage");
+      if (!stage) {
+        setCurating(false);
+        return;
+      }
+      const elementFor = (id: string) => Array.from(stage.querySelectorAll<HTMLElement>("[data-canvas-id]"))
+        .find((element) => element.dataset.canvasId === id);
+      const dayKey = (date: string) => date.split("·")[0].trim();
+      const imageIds = new Set(roomImages.map((image) => image.id));
+      const textIds = new Set(roomTexts.map((text) => text.id));
+      const claimedImages = new Set<string>();
+      const groups = curationThreads.slice(0, 5).flatMap((thread) => {
+        const groupImageIds = thread.fragmentIds.filter((id) => imageIds.has(id) && !claimedImages.has(id));
+        groupImageIds.forEach((id) => claimedImages.add(id));
+        if (!groupImageIds.length) return [];
+        return [{ key: thread.title, imageIds: groupImageIds, textIds: thread.fragmentIds.filter((id) => textIds.has(id)) }];
+      });
+      const remainingImages = roomImages.filter((image) => !claimedImages.has(image.id)).map((image) => image.id);
+      if (remainingImages.length) {
+        if (groups.length >= 5) groups[4].imageIds.push(...remainingImages);
+        else groups.push({ key: "Other fragments", imageIds: remainingImages, textIds: [] });
+      }
+      if (!groups.length) {
+        Array.from(new Set(roomImages.map((image) => dayKey(image.date)))).slice(0, 5).forEach((key) => {
+          groups.push({
+            key,
+            imageIds: roomImages.filter((image) => dayKey(image.date) === key).map((image) => image.id),
+            textIds: roomTexts.filter((text) => dayKey(text.date) === key).map((text) => text.id),
+          });
+        });
+      }
+      const nextPositions: Record<string, Point> = {};
+      const nextScales: Record<string, number> = {};
+
+      groups.forEach((group, groupIndex) => {
+        const groupImages = group.imageIds.flatMap((id) => roomImages.find((image) => image.id === id) ?? []);
+        const baseX = 150 + groupIndex * 600;
+        const lift = groupIndex % 2 ? 65 : 0;
+        groupImages.forEach((image, imageIndex) => {
+          const element = elementFor(image.id);
+          if (!element) return;
+          const target = imageIndex === 0
+            ? { x: baseX, y: 220 + lift }
+            : { x: baseX + 300 + (imageIndex % 2) * 28, y: 540 - lift + Math.floor((imageIndex - 1) / 2) * 340 };
+          nextPositions[image.id] = { x: target.x - element.offsetLeft, y: target.y - element.offsetTop };
+          nextScales[image.id] = imageIndex === 0 ? 1.12 : .86;
+        });
+        const groupNotes = group.textIds.flatMap((id) => roomTexts.find((text) => text.id === id) ?? []);
+        groupNotes.forEach((note, noteIndex) => {
+          const element = elementFor(note.id);
+          if (!element) return;
+          const target = { x: baseX + 335, y: 245 + lift + noteIndex * 150 };
+          nextPositions[note.id] = { x: target.x - element.offsetLeft, y: target.y - element.offsetTop };
+          nextScales[note.id] = .92;
+        });
+      });
+
+      roomTexts.filter((text) => !nextPositions[text.id]).forEach((text, index) => {
+        const element = elementFor(text.id);
+        if (!element) return;
+        const groupIndex = index % Math.max(1, groups.length);
+        const target = { x: 485 + groupIndex * 600, y: 260 + (groupIndex % 2 ? 65 : 0) + Math.floor(index / 5) * 150 };
+        nextPositions[text.id] = { x: target.x - element.offsetLeft, y: target.y - element.offsetTop };
+        nextScales[text.id] = .92;
+      });
+      roomAudios.forEach((audio, index) => {
+        const element = elementFor(audio.id);
+        if (!element) return;
+        const groupIndex = index % Math.max(1, groups.length);
+        const target = { x: 190 + groupIndex * 600, y: 980 + Math.floor(index / 5) * 240 };
+        nextPositions[audio.id] = { x: target.x - element.offsetLeft, y: target.y - element.offsetTop };
+        nextScales[audio.id] = .9;
+      });
+
+      setPositions((current) => ({ ...current, ...nextPositions }));
+      setScales((current) => ({ ...current, ...nextScales }));
+      setCurating(false);
+      setRelationSignal(curationThreads.length
+        ? `AI found ${groups.length} visual walls. Everything can still be moved.`
+        : `Curated into ${groups.length} quiet walls. Everything can still be moved.`);
+      window.setTimeout(() => setRelationSignal(null), 3600);
+      roomCanvasRef.current?.scrollTo({ left: 0, top: 0, behavior: "smooth" });
+    }, 650);
   }
 
   const currentRoom = rooms.find((room) => room.id === currentRoomId) ?? rooms[0];
@@ -969,6 +1155,17 @@ export default function Home() {
                 <span><b>02</b> Close the drawer</span>
                 <span><b>03</b> Meet it again</span>
               </div>
+              <div className="capture-destination">
+                <div>
+                  <small>Put this into</small>
+                  <select value={captureRoomId} onChange={(event) => setCaptureRoomId(event.target.value)} aria-label="Choose a room for this fragment">
+                    {rooms.map((room) => <option key={room.id} value={room.id}>{room.name}{room.id === defaultRoomId ? " · default" : ""}</option>)}
+                  </select>
+                </div>
+                <button type="button" className={captureRoomId === defaultRoomId ? "is-default" : ""} onClick={() => setDefaultRoomId(captureRoomId)}>
+                  {captureRoomId === defaultRoomId ? "★ Default drawer" : "☆ Make default"}
+                </button>
+              </div>
               <div className={`upload-card${pendingImages.length ? " has-images" : ""}`} role="button" tabIndex={0} onClick={() => fileInput.current?.click()} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") fileInput.current?.click(); }} onDragOver={(event) => event.preventDefault()} onDrop={handleDrop}>
                 {pendingImages.length ? (
                   <div className="upload-preview-grid">
@@ -1030,10 +1227,17 @@ export default function Home() {
                 </select>
                 <button onClick={renameRoom} aria-label="Rename this room">Edit</button>
                 <button onClick={addRoom} aria-label="Create a new room">+</button>
+                <button className={currentRoomId === defaultRoomId ? "is-default-room" : ""} onClick={setCurrentAsDefaultRoom} aria-label="Set this as the default drawer">{currentRoomId === defaultRoomId ? "★ Default" : "☆ Default"}</button>
               </div>
               <p>{visibleRoomCount} fragments · last opened just now</p>
             </div>
             <div className="room-actions">
+              {!currentRoom.isSample && !roomImages.length && !roomTexts.length && !roomAudios.length && (
+                <button className="tool-button tool-button--study" onClick={seedFiveDayStudy}><span aria-hidden="true">＋</span> Add a 5-day study</button>
+              )}
+              {!currentRoom.isSample && roomImages.length > 0 && (
+                <button className="tool-button tool-button--curate" onClick={curateRoom} disabled={curating}><span aria-hidden="true">✦</span> {curating ? "Curating…" : "Curate with AI"}</button>
+              )}
               <button className={`tool-button${showGrid ? " is-active" : ""}`} onClick={() => setShowGrid((value) => !value)} aria-pressed={showGrid}>
                 <span className="grid-icon" aria-hidden="true" /> {showGrid ? "Hide grid" : "Show grid"}
               </button>
