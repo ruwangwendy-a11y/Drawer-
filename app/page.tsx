@@ -27,31 +27,31 @@ type AiThread = {
 };
 type RejectedInsight = { title: string; summary: string };
 const ANALYSIS_VERSION = 5;
-const THREAD_LAYOUT_VERSION = 2;
+const THREAD_LAYOUT_VERSION = 3;
 
 const fragmentHomes: Record<string, Point> = {
-  corridor: { x: 278, y: 280 },
-  subway: { x: 785, y: 223 },
-  hall: { x: 1433, y: 508 },
-  gate: { x: 698, y: 841 },
-  reflectionOne: { x: 1900, y: 270 },
-  reflectionTwo: { x: 2430, y: 350 },
-  reflectionThree: { x: 1855, y: 850 },
-  reflectionFour: { x: 2650, y: 880 },
-  reflectionFive: { x: 2220, y: 1420 },
-  shadowReflection: { x: 2800, y: 1590 },
-  rainWindow: { x: 2650, y: 1940 },
+  corridor: { x: 270, y: 338 },
+  subway: { x: 785, y: 301 },
+  hall: { x: 1320, y: 378 },
+  gate: { x: 833, y: 835 },
+  reflectionOne: { x: 1790, y: 269 },
+  reflectionTwo: { x: 2370, y: 256 },
+  reflectionThree: { x: 1795, y: 752 },
+  reflectionFour: { x: 2390, y: 748 },
+  reflectionFive: { x: 1810, y: 1222 },
+  shadowReflection: { x: 2430, y: 1255 },
+  rainWindow: { x: 2080, y: 1749 },
 };
 
 const memoryHomes = [
-  { x: 570, y: 260 },
-  { x: 1045, y: 505 },
-  { x: 1295, y: 915 },
-  { x: 2050, y: 430 },
-  { x: 2350, y: 1050 },
-  { x: 2500, y: 1430 },
-  { x: 3040, y: 1540 },
-  { x: 2310, y: 1940 },
+  { x: 535, y: 350 },
+  { x: 1030, y: 300 },
+  { x: 1080, y: 840 },
+  { x: 2075, y: 270 },
+  { x: 2080, y: 750 },
+  { x: 2120, y: 1230 },
+  { x: 2700, y: 1260 },
+  { x: 2450, y: 1750 },
 ];
 
 const fragments = [
@@ -285,9 +285,16 @@ export default function Home() {
           const newSampleNotes = memoryNotes.filter((note) => !datedMemoryItems.some((saved: typeof note) => saved.target === note.target));
           setMemoryItems(datedMemoryItems.length ? [...datedMemoryItems, ...newSampleNotes] : memoryNotes);
           const restoredPositions = state.positions ?? {};
+          const samplePositionIds = new Set([
+            ...fragments.map((fragment) => fragment.id),
+            ...memoryNotes.map((_, index) => `memory-${index}`),
+            ...(state.capturedImages ?? []).filter((item: CapturedImage) => (item.roomId ?? "sample") === "sample").map((item: CapturedImage) => item.id),
+            ...(state.capturedTexts ?? []).filter((item: CapturedText) => item.roomId === "sample").map((item: CapturedText) => item.id),
+            ...(state.capturedAudios ?? []).filter((item: CapturedAudio) => item.roomId === "sample").map((item: CapturedAudio) => item.id),
+          ]);
           setPositions(state.threadLayoutVersion === THREAD_LAYOUT_VERSION
             ? restoredPositions
-            : Object.fromEntries(Object.entries(restoredPositions).filter(([id]) => !id.startsWith("ai-thread-"))));
+            : Object.fromEntries(Object.entries(restoredPositions).filter(([id]) => !id.startsWith("ai-thread-") && !samplePositionIds.has(id))));
           setScales(state.scales ?? {});
           setHiddenIds(state.hiddenIds ?? []);
           setRooms(state.rooms?.length ? state.rooms : [{ id: "sample", name: "Sample room", isSample: true }]);
@@ -505,27 +512,6 @@ export default function Home() {
     };
   }
 
-  function connectorStyle(noteIndex: number, targetId: string) {
-    const memoryId = `memory-${noteIndex}`;
-    const noteOffset = positions[memoryId] ?? { x: 0, y: 0 };
-    const targetOffset = positions[targetId] ?? { x: 0, y: 0 };
-    const from = canvasItemCenter(memoryId) ?? { x: memoryHomes[noteIndex].x + noteOffset.x, y: memoryHomes[noteIndex].y + noteOffset.y };
-    const targetHome = fragmentHomes[targetId];
-    const to = canvasItemCenter(targetId) ?? { x: targetHome.x + targetOffset.x, y: targetHome.y + targetOffset.y };
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    const moving = draggingId === `memory-${noteIndex}` || draggingId === targetId;
-    const hidden = hiddenIds.includes(`memory-${noteIndex}`) || hiddenIds.includes(targetId);
-    return {
-      left: `${from.x}px`,
-      top: `${from.y}px`,
-      width: `${distance}px`,
-      transform: `rotate(${Math.atan2(dy, dx)}rad)`,
-      opacity: hidden || moving ? 0 : focusedFragment ? (focusedFragment === targetId ? .78 : 0) : .13,
-    };
-  }
-
   function visualHome(targetId: string): Point | null {
     const exactCenter = canvasItemCenter(targetId);
     if (exactCenter) return exactCenter;
@@ -534,7 +520,10 @@ export default function Home() {
     if (imageIndex >= 0) {
       const image = roomImages[imageIndex];
       const width = image.width >= image.height ? 300 : 190;
-      return { x: 210 + (imageIndex % 4) * 330 + width / 2, y: 180 + (imageIndex % 3) * 290 + 110 };
+      const columns = currentRoom.isSample ? 5 : 4;
+      const left = currentRoom.isSample ? 140 + (imageIndex % columns) * 590 : 210 + (imageIndex % columns) * 330;
+      const top = currentRoom.isSample ? 2250 + Math.floor(imageIndex / columns) * 450 : 180 + Math.floor(imageIndex / columns) * 420;
+      return { x: left + width / 2, y: top + 110 };
     }
     return null;
   }
@@ -599,12 +588,7 @@ export default function Home() {
 
   function threadHome(thread: AiThread, threadIndex: number): Point {
     const visualPoints = thread.fragmentIds
-      .map((id) => {
-        const home = visualHome(id);
-        if (!home) return null;
-        const offset = positions[id] ?? { x: 0, y: 0 };
-        return { x: home.x + offset.x, y: home.y + offset.y };
-      })
+      .map((id) => visualHome(id))
       .filter((point): point is Point => Boolean(point));
     if (!visualPoints.length) return { x: 1650 + threadIndex * 330, y: 920 };
     // Anchor each Thread to the center of its own evidence cluster. The old
@@ -644,12 +628,11 @@ export default function Home() {
   function aiConnectorStyle(thread: AiThread, threadIndex: number, targetId: string) {
     const threadId = `ai-thread-${thread.id}`;
     const threadOffset = positions[threadId] ?? { x: 0, y: 0 };
-    const targetOffset = positions[targetId] ?? { x: 0, y: 0 };
     const home = threadHome(thread, threadIndex);
     const from = { x: home.x + 120 + threadOffset.x, y: home.y + 30 + threadOffset.y };
     const target = visualHome(targetId);
     if (!target) return { display: "none" };
-    const to = { x: target.x + targetOffset.x, y: target.y + targetOffset.y };
+    const to = target;
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -683,52 +666,6 @@ export default function Home() {
     if (!selectedId) return;
     setHiddenIds((current) => [...current, selectedId]);
     setSelectedId(null);
-  }
-
-  function tidyRoom() {
-    const stage = roomCanvasRef.current?.querySelector<HTMLElement>(".room-stage");
-    if (!stage) return;
-    const allElements = Array.from(stage.querySelectorAll<HTMLElement>("[data-canvas-id]"));
-    const elementById = new Map(allElements.map((element) => [element.dataset.canvasId ?? "", element]));
-    const chronologicalIds = currentRoom.isSample
-      ? fragments.flatMap((fragment) => [
-        fragment.id,
-        ...memoryItems.flatMap((note, index) => note.target === fragment.id ? [`memory-${index}`] : []),
-      ])
-      : [];
-    const roomIds = [...roomImages.map((item) => item.id), ...roomTexts.map((item) => item.id), ...roomAudios.map((item) => item.id)];
-    const orderedIds = [...chronologicalIds, ...roomIds, ...allElements.map((element) => element.dataset.canvasId ?? "")]
-      .filter((id, index, ids) => id && ids.indexOf(id) === index && elementById.has(id));
-    const nextPositions = { ...positions };
-    let cursorX = 90;
-    let cursorY = 130;
-    let rowHeight = 0;
-    let rowIndex = 0;
-    orderedIds.forEach((id, index) => {
-      const element = elementById.get(id);
-      if (!element) return;
-      const scale = scales[id] ?? 1;
-      const width = element.offsetWidth * scale;
-      const height = element.offsetHeight * scale;
-      if (cursorX + width > ROOM_WIDTH - 90) {
-        cursorX = 90 + (rowIndex % 2) * 38;
-        cursorY += rowHeight + 92;
-        rowHeight = 0;
-        rowIndex += 1;
-      }
-      const stagger = (index % 3) * 22;
-      const x = cursorX;
-      const y = Math.min(ROOM_HEIGHT - height - 70, cursorY + stagger);
-      nextPositions[id] = { x: x - element.offsetLeft, y: y - element.offsetTop };
-      cursorX += width + 76;
-      rowHeight = Math.max(rowHeight, height + stagger);
-    });
-
-    setPositions(nextPositions);
-    setSelectedId(null);
-    closeThreadFocus();
-    setRelationSignal("Tidied into a calm, chronological flow. Nothing was removed.");
-    window.setTimeout(() => setRelationSignal(null), 3200);
   }
 
   function beginTextEdit() {
@@ -900,6 +837,14 @@ export default function Home() {
   const roomImages = capturedImages.filter((image) => (image.roomId ?? "sample") === currentRoomId);
   const roomTexts = capturedTexts.filter((text) => text.roomId === currentRoomId);
   const roomAudios = capturedAudios.filter((audio) => audio.roomId === currentRoomId);
+  const recentColumns = currentRoom.isSample ? 5 : 4;
+  const recentBaseY = currentRoom.isSample ? 2250 : 180;
+  const recentImageRows = Math.max(1, Math.ceil(roomImages.length / recentColumns));
+  const notesBaseY = currentRoom.isSample ? recentBaseY + recentImageRows * 450 : 720;
+  const recentNoteCount = roomTexts.length + roomAudios.length;
+  const roomHeight = currentRoom.isSample
+    ? Math.max(2200, notesBaseY + Math.max(1, Math.ceil(recentNoteCount / 5)) * 340 + 180)
+    : Math.max(2200, notesBaseY + Math.max(1, Math.ceil(recentNoteCount / 4)) * 340 + 220);
   const currentAiThreads = aiThreads[currentRoomId] ?? [];
   const visibleAiThreads = currentAiThreads.filter((thread) => thread.feedback !== "rejected");
   const activeAiThread = visibleAiThreads.find((thread) => thread.id === activeAiThreadId) ?? null;
@@ -1073,7 +1018,6 @@ export default function Home() {
               <button className={`tool-button${showGrid ? " is-active" : ""}`} onClick={() => setShowGrid((value) => !value)} aria-pressed={showGrid}>
                 <span className="grid-icon" aria-hidden="true" /> {showGrid ? "Hide grid" : "Show grid"}
               </button>
-              <button className="tool-button" onClick={tidyRoom} title="Return fragments to a calmer arrangement"><span aria-hidden="true">⌁</span> Tidy gently</button>
               {selectedId && !hiddenIds.includes(selectedId) && (
                 <div className="header-selection-tools" aria-label="Selected item controls">
                   <span>Selected</span>
@@ -1106,8 +1050,8 @@ export default function Home() {
                 <button onClick={() => setZoom((value) => Math.min(1.6, Number((value + .1).toFixed(2))))} aria-label="Zoom in">+</button>
                 <button className="zoom-fit" onClick={() => setZoom(.58)}>Fit</button>
               </div>
-              <div className="room-stage-space" style={{ width: `${ROOM_WIDTH * zoom}px`, height: `${ROOM_HEIGHT * zoom}px` }}>
-              <div className={`room-stage${showGrid ? " has-grid" : ""}`} style={{ transform: `scale(${zoom})` }}>
+              <div className="room-stage-space" style={{ width: `${ROOM_WIDTH * zoom}px`, height: `${roomHeight * zoom}px` }}>
+              <div className={`room-stage${showGrid ? " has-grid" : ""}`} style={{ transform: `scale(${zoom})`, height: `${roomHeight}px` }}>
                 <div className="canvas-guide" aria-label="Canvas guide">
                   <span>Move anything to arrange your thinking.</span>
                   <span>Open a Living Thread to reveal its evidence.</span>
@@ -1121,9 +1065,6 @@ export default function Home() {
                   <span>Words &amp; voice</span>
                   <small>memories can move anywhere</small>
                 </div>
-                {currentRoom.isSample && memoryItems.map((note, index) => (
-                  <span key={`line-${note.target}`} className="dynamic-connector" style={connectorStyle(index, note.target)} aria-hidden="true" />
-                ))}
                 {currentRoom.isSample && fragments.filter((fragment) => !hiddenIds.includes(fragment.id)).map((fragment) => (
                 <figure
                   key={fragment.id}
@@ -1145,8 +1086,8 @@ export default function Home() {
                   data-canvas-id={image.id}
                   className={`fragment fragment--captured${aiFocusClass(image.id)}`}
                   style={{
-                    left: `${210 + (index % 4) * 330}px`,
-                    top: `${180 + (index % 3) * 290}px`,
+                    left: `${currentRoom.isSample ? 140 + (index % recentColumns) * 590 : 210 + (index % recentColumns) * 330}px`,
+                    top: `${recentBaseY + Math.floor(index / recentColumns) * (currentRoom.isSample ? 450 : 420)}px`,
                     width: `${image.width >= image.height ? 300 : 190}px`,
                     transform: itemTransform(image.id),
                     zIndex: 5 + index,
@@ -1170,8 +1111,8 @@ export default function Home() {
                       data-canvas-id={id}
                       className={`memory-fragment memory-fragment--new${aiFocusClass(id)}`}
                       style={{
-                        left: `${350 + (index % 3) * 300}px`,
-                        top: `${380 + (index % 2) * 190}px`,
+                        left: `${currentRoom.isSample ? 140 + (index % 5) * 590 : 160 + (index % 4) * 650}px`,
+                        top: `${notesBaseY + Math.floor(index / (currentRoom.isSample ? 5 : 4)) * 340}px`,
                         transform: itemTransform(id),
                       }}
                       onPointerDown={(event) => startMove(event, id)}
@@ -1191,8 +1132,8 @@ export default function Home() {
                     data-canvas-id={audio.id}
                     className={`audio-fragment${aiFocusClass(audio.id)}`}
                     style={{
-                      left: `${760 + (index % 3) * 310}px`,
-                      top: `${530 + (index % 2) * 230}px`,
+                      left: `${currentRoom.isSample ? 420 + (index % 5) * 590 : 440 + (index % 4) * 650}px`,
+                      top: `${notesBaseY + Math.floor((roomTexts.length + index) / (currentRoom.isSample ? 5 : 4)) * 340}px`,
                       transform: itemTransform(audio.id),
                     }}
                     onPointerDown={(event) => startMove(event, audio.id)}
@@ -1266,7 +1207,7 @@ export default function Home() {
 
                 {activeAiThread && visibleAiThreads.map((thread, threadIndex) => thread.id === activeAiThread.id
                   ? thread.fragmentIds.map((targetId) => (
-                    <span key={`ai-line-${thread.id}-${targetId}`} className="ai-thread-connector" style={aiConnectorStyle(thread, threadIndex, targetId)} aria-hidden="true" />
+                    <span key={`ai-line-${thread.id}-${targetId}`} data-thread-id={thread.id} data-target-id={targetId} className="ai-thread-connector" style={aiConnectorStyle(thread, threadIndex, targetId)} aria-hidden="true" />
                   ))
                   : null)}
 
@@ -1276,6 +1217,7 @@ export default function Home() {
                   return (
                   <button
                     key={`ai-${thread.id}`}
+                    data-thread-id={thread.id}
                     className={`living-thread living-thread--generated${activeAiThreadId === thread.id ? " is-open" : ""}${activeAiThread && activeAiThreadId !== thread.id ? " is-ai-muted" : ""}`}
                     aria-expanded={activeAiThreadId === thread.id}
                     style={{ left: `${home.x}px`, top: `${home.y}px`, transform: itemTransform(`ai-thread-${thread.id}`) }}
