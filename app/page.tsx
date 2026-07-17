@@ -624,6 +624,34 @@ export default function Home() {
     viewportBeforeThread.current = null;
   }
 
+  function resetRoomAnalysis() {
+    const roomItemIds = new Set([
+      ...roomImages.map((item) => item.id),
+      ...roomTexts.map((item) => item.id),
+      ...roomAudios.map((item) => item.id),
+      ...currentAiThreads.map((thread) => `ai-thread-${thread.id}`),
+    ]);
+    const withoutCurrentRoom = <T,>(record: Record<string, T>) => Object.fromEntries(
+      Object.entries(record).filter(([roomId]) => roomId !== currentRoomId),
+    ) as Record<string, T>;
+    setAiThreads((current) => withoutCurrentRoom(current));
+    setAnalysisSnapshots((current) => withoutCurrentRoom(current));
+    setRejectedInsights((current) => withoutCurrentRoom(current));
+    setPositions((current) => Object.fromEntries(
+      Object.entries(current).filter(([id]) => !roomItemIds.has(id)),
+    ));
+    setScales((current) => Object.fromEntries(
+      Object.entries(current).filter(([id]) => !roomItemIds.has(id)),
+    ));
+    setActiveAiThreadId(null);
+    setHoveredAiThreadId(null);
+    setSelectedId(null);
+    setAgentPhase("memory");
+    setRelationSignal("Analysis cleared. Your original fragments are ready for a fresh demo.");
+    window.setTimeout(() => setRelationSignal(null), 3600);
+    roomCanvasRef.current?.scrollTo({ left: 0, top: 0, behavior: "smooth" });
+  }
+
   function stepThread(direction: -1 | 1) {
     if (!activeAiThread || visibleAiThreads.length < 2) return;
     const nextIndex = (activeAiThreadIndex + direction + visibleAiThreads.length) % visibleAiThreads.length;
@@ -1355,6 +1383,11 @@ export default function Home() {
               {activeAiThread && (
                 <button className="tool-button tool-button--show-all" onClick={closeThreadFocus}>
                   <span aria-hidden="true">×</span> Show all
+                </button>
+              )}
+              {!currentRoom.isSample && (currentAiThreads.length > 0 || hasAnalyzedRoom) && (
+                <button className="tool-button tool-button--show-all" onClick={resetRoomAnalysis}>
+                  <span aria-hidden="true">↶</span> Reset analysis
                 </button>
               )}
               <button className="tool-button" onClick={addTextToRoom}><span aria-hidden="true">T</span> Add text</button>
